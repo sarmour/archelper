@@ -1,9 +1,5 @@
 """
 This module helps reduce the need to know arcpy for mapping. There are a few basic functions here that, when combined correctly, can create any number of maps quickly. This tool can use multiple CSVs, columns, and MXDs to create a large number of maps. Module users should use the create_dir() function first to set-up the correct C:/Mapping_Project structure. This module is designed to work with a csv containing values that should be mapped using graduated symbology. The user needs a CSV, shapefiles for mapping, mapping documents (.mxd files), and symbology.
-
-
-
-
 """
 
 import os
@@ -25,6 +21,7 @@ def create_dir():
 
         if not os.path.exists("C:/Mapping_Project/Out"):
             os.mkdir("C:/Mapping_Project/Out")
+        print "Empty folder directory created a C:/Mapping_Project. Add mxds, shapefiles, etc."
     except:
         print "There was an error creating the directories."
 
@@ -40,7 +37,7 @@ def create_workspace():
 
 
 
-def csv_checkmissingshpvals(csvfile,joincol, shpfile, shpfileheader):
+def csv_checkmissingshpvals(csvfile, joincol, shpfile, shpfileheader):
     """This script will check to see if any join column values in the CSV are missing in the shapefile. Returns a list of missing shapefile join data.CheckMissingSHPVals(csvfile should be a filepath. joincol is the column index in the csv starting at 0. shapefile is shapefile path. shapefile header should be the column lookup name.)"""
     csvvals = []
     with open(csvfile) as csv:
@@ -68,30 +65,30 @@ def csv_getcols(csvfile):
 def csv_getall(csvfile):
     """ Prints the lines in an unformatted csv. To join the csv, please use the JoinCSV function.
     """
-    with open(csvfile) as csv:
-        for L in csv:
-            print l
+    with open(csvfile) as csvfile1:
+        for line in csvfile1:
+            print line
 
-def csv_sort(csvfile, colindex = 0, reverse = False):
+def csv_sort(csvfile, colindex=0, reverse=False):
     """ This script will sort a csv based on the colindex and csvfile path. If reverse is True, the values will be sorted in reverse index. This function assumes that the csv has headers. colindex starts at 0.
     """
     data = []
-    with open(csvfile,'r') as f:
-        for line in f:
+    with open(csvfile, 'r') as csv:
+        for line in csv:
             data.append(line)
     header = csv.reader(data, delimiter=",").next()
     reader = csv.reader(data[1:], delimiter=",")
     if reverse:
-        sortedlist = sorted(reader, key=operator.itemgetter(colindex),reverse = True)
+        sortedlist = sorted(reader, key=operator.itemgetter(colindex), reverse= True)
     else:
         sortedlist = sorted(reader, key=operator.itemgetter(colindex))
     os.remove(csvfile)
-    ResultFile = open(csvfile,'wb')
-    wr = csv.writer(ResultFile)
+    resultfile = open(csvfile,'wb')
+    wr = csv.writer(resultfile)
     wr.writerow(header)
     for L in sortedlist:
         wr.writerow(l)
-    ResultFile.close()
+    resultfile.close()
     print "Finished sorting the csv"
 
 def csv_jointable(csvfile, workspace):
@@ -106,6 +103,10 @@ def csv_jointable(csvfile, workspace):
         print "New table in workspace added to the workspace with name ", workspace + '//'+tablename
     return workspace + '//'+tablename
 
+def get_csvlist(folderpath):
+    """ This returns a list of the csv path for all files in the specified folder path."""
+
+    return glob(folderpath + "/*.csv")
 
 def shp_getcols(shapefile):
     """Returns a list of shapefile columns."""
@@ -165,7 +166,7 @@ def shp_addcols(shapefile, cols, datatype):
 def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldindex):
     """ This function manually joins the CSV to the shapefile and does not use geodatabase tables like the JoinCSV() and JoinSHP() functions. This method should be easier and faster in most cases. In the CSV, the join column must be before the columns with mapping values. This code will map all fields from the mapping column onward (to the right). Returns missing cols. Column limit should be 10 characters."""
 
-    cols = GetCSVcols(csvfile)
+    cols = csv_getcols(csvfile)
 
     i = 0
     newcols = []
@@ -174,7 +175,7 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldinde
             newcols.append(col[:10])
         i += 1
 
-    AddSHPcols(shapefile, newcols, "double")
+    shp_addcols(shapefile, newcols, "double")
     i = 0
     ct = 0
     csvjoinlist = []
@@ -182,8 +183,8 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldinde
     with open(csvfile, 'rb') as csvfile:
         lib = dict()
         csvfile.next() #scip the headers
-        for L in csvfile:
-            line = l.rstrip().split(",")
+        for row in csvfile:
+            line = row.rstrip().split(",")
             csvjoinlist.append(line[csvjoinindex])
             lib[line[csvjoinindex]] = lib.get(line[csvjoinindex],line[csvfieldindex:])
 
@@ -228,12 +229,12 @@ def shp_jointable(jointable, joinfield, shapefile, shpjoinfield, add_fields):
 
 
 
-def CalcPerChangeSHP(shapefile, shapejoincol, aggregation_column, maxmin_cols):
-    """This function will loop through a shapefile and group values based upon the specified 'aggregation_column'. The function will then calculate the maximum and minimum for each of the maxmin_cols specified. A new field will be added to the shapefile that included "L_" and the first 8 characters of each value in the maxmin_cols. Use these new columns to label the max and min values when creating maps. Returns the new label columns"""
+def shp_maxmin_by_field(shapefile, shapejoincol, aggregation_column, maxmin_cols):
+    """This function will loop through a shapefile and group values based upon the specified 'aggregation_column'. The function will then calculate the maximum and minimum for each of the maxmin_cols specified. A new field will be added to the shapefile that includes "L_" and the first 8 characters of each value in the maxmin_cols. Use these new columns to label the max and min values when creating maps. Returns the new label columns"""
     newcols = []
     for col in maxmin_cols:
         newcols.append("L_" + col[:8])
-    AddSHPcols(shapefile, newcols, "STRING")
+    shp_addcols(shapefile, newcols, "STRING")
 
     rows = arcpy.SearchCursor(shapefile)
     shpvallist = []
@@ -298,16 +299,17 @@ def CalcPerChangeSHP(shapefile, shapejoincol, aggregation_column, maxmin_cols):
     print newcols
     return newcols
 
-def CalculateField(shapefile, fieldname, py_expression):
+def shp_calcfield(shapefile, fieldname, py_expression):
     """Calculate values for a field given a python expression as a string. The py expression should be formatted with ! characters before and after the field name. ie.py_expression ='str(!POSTCODE!) + '_' + str(!JOIN!) """
     arcpy.CalculateField_management (shapefile, fieldname, py_expression,"Python")
 
 
-def GetMXDList():
+def mxd_getlist():
+    """ Returns a list of mxdfiles in the C:\workspace\MXDs folder"""
     return glob(os.path.join("C:/Mapping_Project/MXDs","*.mxd"))
 
-def GetLayers(mxds):
-    """Prints the available layers in the mxd document. A string version of the layer name is returned. GetLayers(mxds = 'mxdpath' or ['mxdpath1','mxdpath2'])"""
+def mxd_getlayers(mxds):
+    """Prints the available layers in the mxd document. A string version of the layer name is returned. mxd_getlayers(mxds = 'mxdpath' or ['mxdpath1','mxdpath2'])"""
 
     lyrlist = []
     if type(mxds) is list:
@@ -335,7 +337,7 @@ def GetLayers(mxds):
     else:
         print "The mxd needs to be formatted as a list, not a string. add brackets around the variable ['mxdpath']"
 
-def CreateMaps(mxds,shapefile, mapfields,symbology, labels = False):
+def map_create1(mxds,shapefile, mapfields,symbology, labels = False):
     """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. If the symbology does not exist locally, this function will copy the necessary files from the network into the mxd/symbology folder. """
     i= 0
     for col in mapfields:
@@ -360,7 +362,7 @@ def CreateMaps(mxds,shapefile, mapfields,symbology, labels = False):
     elif symbology [-4:] == '.lyr':
         symbpath = arcpy.mapping.Layer(symbology)
     else:
-        print "You need to choose a symbology type: 'Percent_Change','Diff_LC', or a layerpath"
+        print "You need to choose a symbology type: 'Percent_Change','Diff_LC', or a layerfile path"
         return
     for mxd in mxds:
         mxdobj = arcpy.mapping.MapDocument(mxd)
@@ -370,14 +372,17 @@ def CreateMaps(mxds,shapefile, mapfields,symbology, labels = False):
                 lyr.symbologyType == "GRADUATED_COLORS"
 
                 for field in mapfields:
+                    field = field [:10]
                     arcpy.mapping.UpdateLayer(df, lyr, symbpath, True) #if you get a value error, it could be because of the layers source symbology no longer being available. It could also be because of a join issue or incorrect column names. The column name character limit is 10.
                     lyr.symbology.valueField = field
                     if labels:
                             lyr.showLabels = True
                             if symbology.lower() == "percent_change":
-                                expres = "str(int(round(float(["+field[:10]+"])*100,0))) + '%'"
+                                expres = "str(int(round(float(["+field+"])*100,0))) + '%'"
                             elif symbology.lower() == "diff_lc":
-                                expres = "str(round(float(["+field[:10]+"]),3))"
+                                expres = "str(round(float(["+field+"]),3))"
+                            else:
+                                expres = "["+field+"]"
                             for lblClass in lyr.labelClasses:
                                 lblClass.expression = expres
                                 lblClass.SQLQuery = field +" <> -9999"
@@ -388,7 +393,7 @@ def CreateMaps(mxds,shapefile, mapfields,symbology, labels = False):
                     arcpy.mapping.ExportToJPEG(mxdobj, "C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field +".jpg", resolution=mapresolution)
                     print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + ".jpg"
 
-def CreateMaps2(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 = False):
+def map_create2(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 = False):
     """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function will update the symbology and labels for two shapefiles. They must have the same mapfields. Symbology options are diff_lc and percent_change. If labels1 or labels2 is True, the mapfields will be labelled """
 
     i= 0
@@ -466,7 +471,7 @@ def CreateMaps2(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 =
             print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + symbology +".jpg"
 
 
-def CreateMaps3(mxds,shapefile,mapfields, labelfields, symbology):
+def map_create3(mxds,shapefile,mapfields, labelfields, symbology):
     """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function allows specification of different label fields for the mapfields labels. ie use mapfields as difference in loss cost, but label the max and min percent change column. The mapfields and labelfields lists must be ordered in the same order so that the first value of mapfields will get labelled with the first value in labelfields."""
 
     i= 0
@@ -521,7 +526,7 @@ def CreateMaps3(mxds,shapefile,mapfields, labelfields, symbology):
 
 
 
-def CreateMaps4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbology):
+def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbology):
     """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function allows specification of different label fields for the mapfields labels. ie use mapfields as difference in loss cost, but label the max and min percent change column. The mapfields and labelfields lists must be ordered in the same order so that the first value of mapfields will get labelled with the first value in labelfields. This function will zoom to the different layer attributes specified in the shpsubregioncol field."""
     i= 0
     for col in mapfields:
@@ -623,7 +628,7 @@ def JoinSHPspecial(shapefile, shapejoincol, shapefile2, shapejoincol2, addcols):
         addcols[i] = col[:10]
         i += 1
     i = 0
-    AddSHPcols(shapefile2, addcols, "STRING")
+    shp_addcols(shapefile2, addcols, "STRING")
     rows = arcpy.SearchCursor(shapefile)
     shpvallist = []
     joinlist = []
