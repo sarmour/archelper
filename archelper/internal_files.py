@@ -9,6 +9,8 @@ def symb_setup():
     if not os.path.exists("C:\Mapping_Project\MXDs\Symbology\PercentChange.lyr"):
         for fl in glob(r"\\ca1ntap01\grm\PAT\ArcMappingTool\Symbology\PercentChange\\*"):
             shutil.copy2(fl,destsymbdir)
+
+
 def peril_setup_EUWS(maptype):
     """ Moves the RMS MXD template and shapefiles from the GRM drive to the local drive. MXD location is hardcoded. Maptype options = 'CRESTA' or 'POST'"""
     destmxddir = "C:\Mapping_Project\MXDs"

@@ -26,7 +26,7 @@ def create_dir():
         print "There was an error creating the directories."
 
 def create_workspace():
-    """Checks if a .gbp workspace exists. If there is not one, the script will make one. This script returns the path of the workspace. The .gbp workspace is useful for working with csv data.
+    """Returns the path of the workspace. Checks if a .gbp workspace exists. If there is not one, the script will make one. This script returns the path of the workspace. The .gbp workspace is required to use the csv_jointable function and shp_jointable functions.
     """
     path = 'C://Mapping_Project//workspace.gdb'
     if not os.path.exists('C://Mapping_Project//workspace.gdb'):
@@ -38,7 +38,7 @@ def create_workspace():
 
 
 def csv_checkmissingshpvals(csvfile, joincol, shpfile, shpfileheader):
-    """This script will check to see if any join column values in the CSV are missing in the shapefile. Returns a list of missing shapefile join data.CheckMissingSHPVals(csvfile should be a filepath. joincol is the column index in the csv starting at 0. shapefile is shapefile path. shapefile header should be the column lookup name.)"""
+    """This script will check to see if any join column values in the CSV are missing in the shapefile. Returns a list of missing shapefile. csvfile should be a filepath. joincol is the column index in the csv starting at 0. shapefile is shapefile path. shapefile header should be the column lookup name."""
     csvvals = []
     with open(csvfile) as csv:
         csv.next()
@@ -63,14 +63,17 @@ def csv_getcols(csvfile):
     return cols
 
 def csv_getall(csvfile):
-    """ Prints the lines in an unformatted csv. To join the csv, please use the JoinCSV function.
+    """ Prints the lines in an unformatted csv. To join the csv, please use the JoinCSV function. Returns the contents of the csvfile.
     """
+    csvvals = []
     with open(csvfile) as csvfile1:
         for line in csvfile1:
             print line
+            csvvals.append(line)
+    return csvvals
 
 def csv_sort(csvfile, colindex=0, reverse=False):
-    """ This script will sort a csv based on the colindex and csvfile path. If reverse is True, the values will be sorted in reverse index. This function assumes that the csv has headers. colindex starts at 0.
+    """ Sorts a csv based on the colindex and csvfile path. If reverse is True, the values will be sorted in reverse index. This function assumes that the csv has headers. colindex starts at 0.
     """
     data = []
     with open(csvfile, 'r') as csv:
@@ -109,7 +112,7 @@ def get_csvlist(folderpath):
     return glob(folderpath + "/*.csv")
 
 def shp_getcols(shapefile):
-    """Returns a list of shapefile columns."""
+    """Returns a list of shapefile columns. Shapefile should be a filepath"""
     mylist = []
     for field in arcpy.ListFields(shapefile):
         mylist.append(str(field.name.strip()))
@@ -223,413 +226,6 @@ def shp_jointable(jointable, joinfield, shapefile, shpjoinfield, add_fields):
     arcpy.JoinField_management(shapefile, shpjoinfield,jointable, joinfield, new_fields)
     print "Finished shapefile join."
 
-
-
-
-
-
-
-def shp_maxmin_by_field(shapefile, shapejoincol, aggregation_column, maxmin_cols):
-    """This function will loop through a shapefile and group values based upon the specified 'aggregation_column'. The function will then calculate the maximum and minimum for each of the maxmin_cols specified. A new field will be added to the shapefile that includes "L_" and the first 8 characters of each value in the maxmin_cols. Use these new columns to label the max and min values when creating maps. Returns the new label columns"""
-    newcols = []
-    for col in maxmin_cols:
-        newcols.append("L_" + col[:8])
-    shp_addcols(shapefile, newcols, "STRING")
-
-    rows = arcpy.SearchCursor(shapefile)
-    shpvallist = []
-    joinlist = []
-    for row in rows:
-        vals = {}
-        vals[aggregation_column] = str(row.getValue(aggregation_column))
-        vals[shapejoincol] = str(row.getValue(shapejoincol))
-        joinlist.append(vals[aggregation_column])
-        for val in maxmin_cols:
-            vals[val[:10]] = float(row.getValue(val[:10]))
-        shpvallist.append(vals)
-    # print shpvallist[:10]
-    joinlist = set(joinlist)
-    coldict = {}
-    for col in maxmin_cols:
-        col = col[:10]
-        newdict = {}
-        for adminval in joinlist:
-            vals = []
-            for row in shpvallist:
-                if row[aggregation_column] == adminval:
-                    postalcode = row[shapejoincol]
-                    if int(row[col]) == -9999: #use -9999 as a key for no data
-                        val = ''
-                    else:
-                        val = row[col]
-                    vals.append((postalcode, val))
-            # try:
-            i = 0
-            for postalcode, val in vals:
-                if val == -9999:
-                    continue
-                elif i == 0:
-                    maxpost, maxval = postalcode, val
-                    minpost, minval = postalcode, val
-                elif val > maxval:
-                    maxpost, maxval = postalcode, val
-                elif val < minval:
-                    minpost, minval = postalcode, val
-                i += 1
-            i = 0
-            newdict[adminval] = (maxpost, maxval,minpost, minval)
-        coldict[col] = newdict
-
-    for col in maxmin_cols:
-        col = col[:10]
-        l_col = "L_" + str(col)[:8]
-        vals = coldict[col]
-        del rows
-        rows = arcpy.UpdateCursor(shapefile)
-        for row in rows:
-            shpjoinval = row.getValue(aggregation_column)
-            post = row.getValue(shapejoincol)
-            currentval = row.getValue(col)
-            maxpost = vals[shpjoinval][0]
-            minpost = vals[shpjoinval][2]
-            if post in (maxpost, minpost):
-                row.setValue(l_col,"{0:.0f}%".format(currentval*100))
-                rows.updateRow(row)
-    print "Finished adding the max and min percent change values to the shapefile. Here are the new column headers"
-    print newcols
-    return newcols
-
-def shp_calcfield(shapefile, fieldname, py_expression):
-    """Calculate values for a field given a python expression as a string. The py expression should be formatted with ! characters before and after the field name. ie.py_expression ='str(!POSTCODE!) + '_' + str(!JOIN!) """
-    arcpy.CalculateField_management (shapefile, fieldname, py_expression,"Python")
-
-
-def mxd_getlist():
-    """ Returns a list of mxdfiles in the C:\workspace\MXDs folder"""
-    return glob(os.path.join("C:/Mapping_Project/MXDs","*.mxd"))
-
-def mxd_getlayers(mxds):
-    """Prints the available layers in the mxd document. A string version of the layer name is returned. mxd_getlayers(mxds = 'mxdpath' or ['mxdpath1','mxdpath2'])"""
-
-    lyrlist = []
-    if isinstance(mxds, list):
-        for mxdpath in mxds:
-            print mxdpath
-            mxd = arcpy.mapping.MapDocument(mxdpath)
-            i = 0
-            for lyr in arcpy.mapping.ListLayers(mxd):
-                lyrlist.append([os.path.basename(mxdpath), str(lyr.name), i])
-                i += 1
-        print 'MXD/tLAYER/tLAYER_INDEX'
-        for row in lyrlist:
-            print row
-        return lyrlist
-    elif isinstance(mxds,str):
-        mxd = arcpy.mapping.MapDocument(mxds)
-        i = 0
-        for lyr in arcpy.mapping.ListLayers(mxd):
-            lyrlist.append([os.path.basename(mxds), str(lyr.name), i])
-            i += 1
-        print 'MXD/tLAYER/tLAYER_INDEX'
-        for row in lyrlist:
-            print row
-        return lyrlist
-    else:
-        print "The mxd needs to be formatted as a list, not a string. add brackets around the variable ['mxdpath']"
-
-def map_create1(mxds,shapefile, mapfields,symbology, labels = False , prefix = None):
-    """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. If the symbology does not exist locally, this function will copy the necessary files from the network into the mxd/symbology folder. """
-    i= 0
-    for col in mapfields:
-        mapfields[i] = col[:10]
-        i += 1
-    i = 0
-    if isinstance(mxds, str):
-        newmxd = []
-        newmxd.append(mxds)
-        mxds = newmxd
-    if isinstance(mapfields, str):
-        newmapfields = []
-        newmapfields.append(mapfields)
-        mapfields = newmapfields
-
-    mapresolution = 300 #300 is common.
-
-    if symbology.lower() == "percent_change":
-        symbpath = arcpy.mapping.Layer("C:/Mapping_Project/MXDs/Symbology/PercentChange.lyr")
-    elif symbology.lower() == "diff_lc":
-        symbpath = arcpy.mapping.Layer('C:/Mapping_Project/MXDs/Symbology/DifferenceinLossCost.lyr')
-    elif symbology [-4:] == '.lyr':
-        symbpath = arcpy.mapping.Layer(symbology)
-    else:
-        print "You need to choose a symbology type: 'Percent_Change','Diff_LC', or a layerfile path"
-        return
-    for mxd in mxds:
-        mxdobj = arcpy.mapping.MapDocument(mxd)
-        df = arcpy.mapping.ListDataFrames(mxdobj)[0] #leave as default for these maps(will it change for other perils????)
-        for lyr in arcpy.mapping.ListLayers(mxdobj):
-            if lyr.name == os.path.basename(shapefile).replace(".shp",""): #leave as default for these maps(will it change for other perils????)
-                lyr.symbologyType == "GRADUATED_COLORS"
-
-                for field in mapfields:
-                    field = field [:10]
-                    arcpy.mapping.UpdateLayer(df, lyr, symbpath, True) #if you get a value error, it could be because of the layers source symbology no longer being available. It could also be because of a join issue or incorrect column names. The column name character limit is 10.
-                    lyr.symbology.valueField = field
-                    if labels:
-                            lyr.showLabels = True
-                            if symbology.lower() == "percent_change":
-                                expres = "str(int(round(float(["+field+"])*100,0))) + '%'"
-                            elif symbology.lower() == "diff_lc":
-                                expres = "str(round(float(["+field+"]),3))"
-                            else:
-                                expres = "["+field+"]"
-                            for lblClass in lyr.labelClasses:
-                                lblClass.expression = expres
-                                lblClass.SQLQuery = field +" <> -9999"
-                                lblClass.showClassLabels = True
-                    else:
-                        lyr.showLabels = False
-                    arcpy.RefreshActiveView()
-                    if prefix:
-                        outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
-                        print outpath
-                    else:
-                        outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
-                        print outpath
-                    arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
-                    print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
-
-def map_create2(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 = False, prefix = None):
-    """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function will update the symbology and labels for two shapefiles. They must have the same mapfields. Symbology options are diff_lc and percent_change. If labels1 or labels2 is True, the mapfields will be labelled """
-
-    i= 0
-    for col in mapfields:
-        mapfields[i] = col[:10]
-        i += 1
-
-    if isinstance(mxds, str):
-        newmxd = []
-        newmxd.append(mxds)
-        mxds = newmxd
-    if isinstance(mapfields, str):
-        newmapfields = []
-        newmapfields.append(mapfields)
-        mapfields = newmapfields
-
-    mapresolution = 300 #300 is common.
-
-    if symbology.lower() == "percent_change":
-        symbpath = arcpy.mapping.Layer("C:/Mapping_Project/MXDs/Symbology/PercentChange.lyr")
-    elif symbology.lower() == "diff_lc":
-        symbpath = arcpy.mapping.Layer('C:/Mapping_Project/MXDs/Symbology/DifferenceinLossCost.lyr')
-    else:
-        print "You need to choose a symbology type: 'Percent_Change' or 'Diff_LC'"
-        return
-    for mxd in mxds:
-        mxdobj = arcpy.mapping.MapDocument(mxd)
-        df = arcpy.mapping.ListDataFrames(mxdobj)[0] #leave as default for these maps(will it change for other perils????)
-
-        for lyr in arcpy.mapping.ListLayers(mxdobj):
-            if lyr.name == os.path.basename(shp1).replace(".shp",""):
-                lyr1 = lyr
-            elif lyr.name == os.path.basename(shp2).replace(".shp",""):
-                lyr2 = lyr
-
-        lyr1.symbologyType == "GRADUATED_COLORS"
-        lyr2.symbologyType == "GRADUATED_COLORS"
-
-        for field in mapfields:
-            field = field [:10]
-            print os.path.basename(mxd).rstrip(".mxd"), field
-            arcpy.mapping.UpdateLayer(df, lyr1, symbpath, True)
-            if symbology.lower() == "percent_change":
-                expres = "str(int(round(float(["+field+"])*100,0))) + '%'"
-            elif symbology.lower() == "diff_lc":
-                expres = "str(int(round(float(["+field+"])*100,0)))"
-            lyr1.symbology.valueField = field
-            if labels1:
-                if lyr1.supports("LABELCLASSES"):
-                    lyr1.showLabels = True
-                # print "Layer name: " + lyr1.name
-                    for lblClass in lyr1.labelClasses:
-                        lblClass.expression = expres
-                        lblClass.SQLQuery = field +" <> -9999"
-                        lblClass.showClassLabels = True
-            else:
-                lyr1.showLabels = False
-
-            arcpy.mapping.UpdateLayer(df, lyr2, symbpath, True)
-            lyr2.symbology.valueField = field
-
-            if labels2:
-                if lyr2.supports("LABELCLASSES"):
-                    lyr2.showLabels = True
-                # print "Layer name: " + lyr2.name
-                    for lblClass in lyr2.labelClasses:
-                        lblClass.expression = expres
-                        lblClass.SQLQuery = field +" <> -9999"
-                        lblClass.showClassLabels = True
-            else:
-                lyr2.showLabels = False
-
-            arcpy.RefreshActiveView()
-            if prefix:
-                arcpy.mapping.ExportToJPEG(mxdobj, 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg', resolution=mapresolution)
-            else:
-                arcpy.mapping.ExportToJPEG(mxdobj, 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg', resolution=mapresolution)
-            print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
-
-
-def map_create3(mxds,shapefile,mapfields, labelfields, symbology):
-    """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function allows specification of different label fields for the mapfields labels. ie use mapfields as difference in loss cost, but label the max and min percent change column. The mapfields and labelfields lists must be ordered in the same order so that the first value of mapfields will get labelled with the first value in labelfields."""
-
-    i= 0
-    for col in mapfields:
-        mapfields[i] = col[:10]
-        i += 1
-
-    if isinstance(mxds, str):
-        newmxd = []
-        newmxd.append(mxds)
-        mxds = newmxd
-    if isinstance(mapfields, str):
-        newmapfields = []
-        newmapfields.append(mapfields)
-        mapfields = newmapfields
-
-    mapresolution = 300 #300 is common.
-
-    if symbology.lower() == "percent_change":
-        symbpath = arcpy.mapping.Layer("C:/Mapping_Project/MXDs/Symbology/PercentChange.lyr")
-    elif symbology.lower() == "diff_lc":
-        symbpath = arcpy.mapping.Layer('C:/Mapping_Project/MXDs/Symbology/DifferenceinLossCost.lyr')
-    else:
-        print "You need to choose a symbology type: 'Percent_Change' or 'Diff_LC'"
-        return
-    for mxd in mxds:
-        mxdobj = arcpy.mapping.MapDocument(mxd)
-        df = arcpy.mapping.ListDataFrames(mxdobj)[0] #leave as default for these maps(will it change for other perils????)
-
-        for lyr in arcpy.mapping.ListLayers(mxdobj):
-            if lyr.name == os.path.basename(shapefile).replace(".shp",""):
-                lyr.symbologyType == "GRADUATED_COLORS"
-                for field, label in zip(mapfields, labelfields):
-                    field = field [:10]
-                    label = label [:10]
-                    print field, label
-
-                    arcpy.mapping.UpdateLayer(df, lyr, symbpath, True)
-                    lyr.symbology.valueField = field
-                    expres = "["+label+"]"
-                    print expres
-                    if lyr.supports("LABELCLASSES"):
-                        lyr.showLabels = True
-                        for lblClass in lyr.labelClasses:
-                            lblClass.expression = expres
-                            lblClass.SQLQuery = field +" <> -9999"
-                            lblClass.showClassLabels = True
-                    arcpy.RefreshActiveView()
-                    arcpy.mapping.ExportToJPEG(mxdobj, "C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + symbology +'.jpg', resolution=mapresolution)
-                    print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + symbology +'.jpg'
-
-
-
-
-def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbology):
-    """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function allows specification of different label fields for the mapfields labels. ie use mapfields as difference in loss cost, but label the max and min percent change column. The mapfields and labelfields lists must be ordered in the same order so that the first value of mapfields will get labelled with the first value in labelfields. This function will zoom to the different layer attributes specified in the shpsubregioncol field."""
-    i= 0
-    for col in mapfields:
-        mapfields[i] = col[:10]
-        i += 1
-    i = 0
-    for col in labelfields:
-        labelfields[i] = col[:10]
-        i += 1
-
-    if isinstance(mxds, str):
-        newmxd = []
-        newmxd.append(mxds)
-        mxds = newmxd
-    if isinstance(mapfields, str):
-        newmapfields = []
-        newmapfields.append(mapfields)
-        mapfields = newmapfields
-    if isinstance(labelfields, str):
-        newlabelfields = []
-        newlabelfields.append(mapfields)
-        labelfieldsfields = newlabelfields
-
-    mapresolution = 300 #300 is common.
-
-    if symbology.lower() == "percent_change":
-        symbpath = arcpy.mapping.Layer("C:/Mapping_Project/MXDs/Symbology/PercentChange.lyr")
-    elif symbology.lower() == "diff_lc":
-        symbpath = arcpy.mapping.Layer('C:/Mapping_Project/MXDs/Symbology/DifferenceinLossCost.lyr')
-    else:
-        print "You need to choose a symbology type: 'Percent_Change' or 'Diff_LC'"
-        return
-
-
-    rows = arcpy.SearchCursor(shapefile)
-    adminIDs = []
-    for row in rows:
-        val = row.getValue(shpsubregioncol)
-        if val not in adminIDs:
-            adminIDs.append(val)
-    del rows
-
-    for mxd in mxds:
-        mxdobj = arcpy.mapping.MapDocument(mxd)
-        df = arcpy.mapping.ListDataFrames(mxdobj)[0] #leave as default for these maps(will it change for other perils????)
-
-
-        for lyr in arcpy.mapping.ListLayers(mxdobj):
-            if lyr.name == "EUFL_RL15_Zips_Cover":
-                lyr2 = lyr
-            elif lyr.name == "EUFL_RL15_Zips_Cover2":
-                lyr3 = lyr
-
-        for lyr in arcpy.mapping.ListLayers(mxdobj):
-            if lyr.name == os.path.basename(shapefile).replace(".shp",""):
-                lyr.symbologyType == "GRADUATED_COLORS"
-                for field, label in zip(mapfields, labelfields):
-                    field = field [:10]
-                    label = label [:10]
-                    arcpy.mapping.UpdateLayer(df, lyr, symbpath, True)
-                    lyr.symbology.valueField = field
-                    expres = "str(int(round(float(["+label+"]) *100,0))) + '%'"
-                    print expres
-                    if lyr.supports("LABELCLASSES"):
-                        print "here"
-                        lyr.showLabels = True
-                        for lblClass in lyr.labelClasses:
-                            lblClass.expression = expres
-                            lblClass.SQLQuery = field +" <> -9999"
-                            lblClass.showClassLabels = True
-
-                    for adminID in adminIDs:
-                        if adminID[:2] in ['BE','UK','GM']:
-                            adminID = str(adminID)
-
-                            query1 = '"'+ shpsubregioncol + '" = ' + "'" + adminID + "'"
-                            query2 = '"'+ shpsubregioncol + '" <> ' + "'" + adminID + "'"
-                            query3 = '"'+ shpsubregioncol + '" <> ' + "'" + adminID + "'"
-                            print shpsubregioncol, adminID, query1
-                            lyr.definitionQuery =  query1
-                            lyr2.definitionQuery = query2
-                            lyr3.definitionQuery = query3
-
-                            ext = lyr.getSelectedExtent(True)
-                            df.extent = ext
-                            # df.panToExtent(lyr.getSelectedExtent())
-                            # df.zoomToSelectedFeatures()
-                            arcpy.RefreshActiveView()
-                            arcpy.mapping.ExportToJPEG(mxdobj, "C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + adminID + "_" + field + symbology + '.jpg', resolution=mapresolution)
-                            print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + adminID +"_" +field + symbology + '.jpg'
-
-
-###############################################################################
-
 def shp_maxmin_newshp(shapefile, shapejoincol, shapefile2, shapejoincol2, addcols):
     """Not using this function for the project, but it works, so i'm leaving it here. This function adds max and min values associated with shapefile1 to shapefile2. If shapefile 1 has 3 postcodes in a county, this script will add the max and min value to shapefile 2 for that county. The value -9999 in a shpfile is treated as unknown rather than a minimum change."""
     i= 0
@@ -685,6 +281,421 @@ def shp_maxmin_newshp(shapefile, shapejoincol, shapefile2, shapejoincol2, addcol
                 rows.updateRow(row)
             except:
                 pass
+
+def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols):
+    """This function will loop through a shapefile and group values based upon the specified 'aggregation_column'. The function will then calculate the maximum and minimum for each of the maxmin_cols specified. A new field will be added to the shapefile that includes "L_" and the first 8 characters of each value in the maxmin_cols. Use these new columns to label the max and min values when creating maps. Returns the new label columns"""
+    newcols = []
+    for col in maxmin_cols:
+        newcols.append("L_" + col[:8])
+    shp_addcols(shapefile, newcols, "STRING")
+
+    rows = arcpy.SearchCursor(shapefile)
+    shpvallist = []
+    joinlist = []
+    for row in rows:
+        vals = {}
+        vals[aggregation_column] = str(row.getValue(aggregation_column))
+        vals[shapejoincol] = str(row.getValue(shapejoincol))
+        joinlist.append(vals[aggregation_column])
+        for val in maxmin_cols:
+            vals[val[:10]] = float(row.getValue(val[:10]))
+        shpvallist.append(vals)
+    # print shpvallist[:10]
+    joinlist = set(joinlist)
+    coldict = {}
+    for col in maxmin_cols:
+        col = col[:10]
+        newdict = {}
+        for adminval in joinlist:
+            vals = []
+            for row in shpvallist:
+                if row[str(aggregation_column)] == adminval:
+                    postalcode = str(row[shapejoincol])
+                    if int(row[col]) == -9999: #use -9999 as a key for no data
+                        val = ''
+                    else:
+                        val = row[col]
+                    vals.append((postalcode, val))
+            # try:
+            i = 0
+            for postalcode, val in vals:
+                if val == -9999:
+                    continue
+                elif i == 0:
+                    maxpost, maxval = postalcode, val
+                    minpost, minval = postalcode, val
+                elif val > maxval:
+                    maxpost, maxval = postalcode, val
+                elif val < minval:
+                    minpost, minval = postalcode, val
+                i += 1
+            i = 0
+            newdict[str(adminval)] = (maxpost, maxval,minpost, minval)
+        coldict[col] = newdict
+
+    for col in maxmin_cols:
+        col = col[:10]
+        l_col = "L_" + str(col)[:8]
+        vals = coldict[col]
+        del rows
+        rows = arcpy.UpdateCursor(shapefile)
+        for row in rows:
+            shpjoinval = str(row.getValue(aggregation_column))
+            post = str(row.getValue(shapejoincol))
+            currentval = row.getValue(col)
+            maxpost = vals[shpjoinval][0]
+            minpost = vals[shpjoinval][2]
+            if post in (maxpost, minpost):
+                row.setValue(l_col,"{0:.0f}%".format(currentval*100))
+                rows.updateRow(row)
+    print "Finished adding the max and min percent change values to the shapefile. Here are the new column headers"
+    print newcols
+    return newcols
+
+def shp_calcfield(shapefile, fieldname, py_expression):
+    """Calculate values for a field given a python expression as a string. The py expression should be formatted with ! characters before and after the field name. ie.py_expression ='str(!POSTCODE!) + '_' + str(!JOIN!) """
+    arcpy.CalculateField_management (shapefile, fieldname, py_expression,"Python")
+
+
+def mxd_getlist():
+    """ Returns a list of mxdfiles in the C:\workspace\MXDs folder"""
+    return glob(os.path.join("C:/Mapping_Project/MXDs","*.mxd"))
+
+def mxd_getlayers(mxds):
+    """Prints the available layers in the mxd document. A string version of the layer name is returned. mxd_getlayers(mxds = 'mxdpath' or ['mxdpath1','mxdpath2'])"""
+
+    lyrlist = []
+    if isinstance(mxds, list):
+        for mxdpath in mxds:
+            print mxdpath
+            mxd = arcpy.mapping.MapDocument(mxdpath)
+            i = 0
+            for lyr in arcpy.mapping.ListLayers(mxd):
+                lyrlist.append([os.path.basename(mxdpath), str(lyr.name), i])
+                i += 1
+        print 'MXD/tLAYER/tLAYER_INDEX' #adding cols to what is getting printed
+        for row in lyrlist:
+            print row
+        return lyrlist
+    elif isinstance(mxds,str):
+        mxd = arcpy.mapping.MapDocument(mxds)
+        i = 0
+        for lyr in arcpy.mapping.ListLayers(mxd):
+            lyrlist.append([os.path.basename(mxds), str(lyr.name), i])
+            i += 1
+        print 'MXD/tLAYER/tLAYER_INDEX'
+        for row in lyrlist:
+            print row
+        return lyrlist
+    else:
+        print "The mxd needs to be formatted as a list, not a string. add brackets around the variable ['mxdpath']"
+
+def map_create1(mxds,shapefile, mapfields,symbology, labels = False , prefix = None):
+    """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC' or add your own layer. Labels can be set to True or False. If Diff_LC or Percent_change is specified, labels will be formatted. Prefix will add a prefix to the output file name. This is strongly recommended when mapping multiple CSVs. """
+    i= 0
+    for col in mapfields:
+        mapfields[i] = col[:10]
+        i += 1
+    i = 0
+    if isinstance(mxds, str):
+        newmxd = []
+        newmxd.append(mxds)
+        mxds = newmxd
+    if isinstance(mapfields, str):
+        newmapfields = []
+        newmapfields.append(mapfields)
+        mapfields = newmapfields
+
+    mapresolution = 300 #300 is common.
+
+    if symbology.lower() == "percent_change":
+        symbpath = arcpy.mapping.Layer("C:/Mapping_Project/MXDs/Symbology/PercentChange.lyr")
+    elif symbology.lower() == "diff_lc":
+        symbpath = arcpy.mapping.Layer('C:/Mapping_Project/MXDs/Symbology/DifferenceinLossCost.lyr')
+    elif symbology [-4:] == '.lyr':
+        symbpath = arcpy.mapping.Layer(symbology)
+    else:
+        print "You need to choose a symbology type: 'Percent_Change','Diff_LC', or a layerfile path"
+        return
+    for mxd in mxds:
+        mxdobj = arcpy.mapping.MapDocument(mxd)
+        df = arcpy.mapping.ListDataFrames(mxdobj)[0] #leave as default for these maps(will it change for other perils????)
+        for lyr in arcpy.mapping.ListLayers(mxdobj):
+            if lyr.name == os.path.basename(shapefile).replace(".shp",""): #leave as default for these maps(will it change for other perils????)
+                lyr.symbologyType == "GRADUATED_COLORS"
+
+                for field in mapfields:
+                    field = field [:10]
+                    arcpy.mapping.UpdateLayer(df, lyr, symbpath, True) #if you get a value error, it could be because of the layers source symbology no longer being available. It could also be because of a join issue or incorrect column names. The column name character limit is 10.
+                    lyr.symbology.valueField = field
+                    if labels:
+                            lyr.showLabels = True
+                            if symbology.lower() == "percent_change":
+                                expres = "str(int(round(float(["+field+"])*100,0))) + '%'"
+                            elif symbology.lower() == "diff_lc":
+                                expres = "str(round(float(["+field+"]),3))"
+                            else:
+                                expres = "["+field+"]"
+                            for lblClass in lyr.labelClasses:
+                                lblClass.expression = expres
+                                lblClass.SQLQuery = field +" <> -9999"
+                                lblClass.showClassLabels = True
+                    else:
+                        lyr.showLabels = False
+                    arcpy.RefreshActiveView()
+                    if prefix:
+                        outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
+                        print "Making a map at :" + outpath
+                    else:
+                        outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
+                        "Making a map at :" + outpath
+                    arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
+
+def map_create2(mxds,shapefile,mapfields, labelfields, symbology, prefix = False):
+    """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function allows specification of different label fields for the mapfields labels. ie use mapfields as difference in loss cost, but label the max and min percent change column. The mapfields and labelfields lists must be ordered in the same order so that the first value of mapfields will get labelled with the first value in labelfields."""
+
+    i= 0
+    for col in mapfields:
+        mapfields[i] = col[:10]
+        i += 1
+
+    if isinstance(mxds, str):
+        newmxd = []
+        newmxd.append(mxds)
+        mxds = newmxd
+    if isinstance(mapfields, str):
+        newmapfields = []
+        newmapfields.append(mapfields)
+        mapfields = newmapfields
+
+    mapresolution = 300 #300 is common.
+
+    if symbology.lower() == "percent_change":
+        symbpath = arcpy.mapping.Layer("C:/Mapping_Project/MXDs/Symbology/PercentChange.lyr")
+    elif symbology.lower() == "diff_lc":
+        symbpath = arcpy.mapping.Layer('C:/Mapping_Project/MXDs/Symbology/DifferenceinLossCost.lyr')
+    elif symbology [-4:] == '.lyr':
+        symbpath = arcpy.mapping.Layer(symbology)
+    else:
+        print "You need to choose a symbology type: 'Percent_Change','Diff_LC', or a layerfile path"
+        return
+    for mxd in mxds:
+        mxdobj = arcpy.mapping.MapDocument(mxd)
+        df = arcpy.mapping.ListDataFrames(mxdobj)[0] #leave as default for these maps(will it change for other perils????)
+
+        for lyr in arcpy.mapping.ListLayers(mxdobj):
+            if lyr.name == os.path.basename(shapefile).replace(".shp",""):
+                lyr.symbologyType == "GRADUATED_COLORS"
+                for field, label in zip(mapfields, labelfields):
+                    field = field [:10]
+                    label = label [:10]
+                    # print field, label
+
+                    arcpy.mapping.UpdateLayer(df, lyr, symbpath, True)
+                    lyr.symbology.valueField = field
+                    expres = "["+label+"]"
+                    # print expres
+                    if lyr.supports("LABELCLASSES"):
+                        lyr.showLabels = True
+                        for lblClass in lyr.labelClasses:
+                            lblClass.expression = expres
+                            lblClass.SQLQuery = field +" <> -9999"
+                            lblClass.showClassLabels = True
+                    arcpy.RefreshActiveView()
+
+                    if prefix:
+                        outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
+                        print "Making a map at :" + outpath
+                    else:
+                        outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
+                        "Making a map at :" + outpath
+                    arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
+
+
+def map_create3(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 = False, prefix = None):
+    """This function will update the symbology and labels for two shapefiles. They must have the same mapfields. This function will then create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'.  Symbology options are diff_lc and percent_change. If labels1 or labels2 is True, the mapfields will be labelled """
+
+    i= 0
+    for col in mapfields:
+        mapfields[i] = col[:10]
+        i += 1
+
+    if isinstance(mxds, str):
+        newmxd = []
+        newmxd.append(mxds)
+        mxds = newmxd
+    if isinstance(mapfields, str):
+        newmapfields = []
+        newmapfields.append(mapfields)
+        mapfields = newmapfields
+
+    mapresolution = 300 #300 is common.
+
+    if symbology.lower() == "percent_change":
+        symbpath = arcpy.mapping.Layer("C:/Mapping_Project/MXDs/Symbology/PercentChange.lyr")
+    elif symbology.lower() == "diff_lc":
+        symbpath = arcpy.mapping.Layer('C:/Mapping_Project/MXDs/Symbology/DifferenceinLossCost.lyr')
+    elif symbology [-4:] == '.lyr':
+        symbpath = arcpy.mapping.Layer(symbology)
+    else:
+        print "You need to choose a symbology type: 'Percent_Change','Diff_LC', or a layerfile path"
+        return
+    for mxd in mxds:
+        mxdobj = arcpy.mapping.MapDocument(mxd)
+        df = arcpy.mapping.ListDataFrames(mxdobj)[0] #leave as default for these maps(will it change for other perils????)
+
+        for lyr in arcpy.mapping.ListLayers(mxdobj):
+            if lyr.name == os.path.basename(shp1).replace(".shp",""):
+                lyr1 = lyr
+            elif lyr.name == os.path.basename(shp2).replace(".shp",""):
+                lyr2 = lyr
+
+        lyr1.symbologyType == "GRADUATED_COLORS"
+        lyr2.symbologyType == "GRADUATED_COLORS"
+
+        for field in mapfields:
+            field = field [:10]
+            # print os.path.basename(mxd).rstrip(".mxd"), field
+            arcpy.mapping.UpdateLayer(df, lyr1, symbpath, True)
+            if symbology.lower() == "percent_change":
+                expres = "str(int(round(float(["+field+"])*100,0))) + '%'"
+            elif symbology.lower() == "diff_lc":
+                expres = "str(int(round(float(["+field+"])*100,0)))"
+            lyr1.symbology.valueField = field
+            if labels1:
+                if lyr1.supports("LABELCLASSES"):
+                    lyr1.showLabels = True
+                # print "Layer name: " + lyr1.name
+                    for lblClass in lyr1.labelClasses:
+                        lblClass.expression = expres
+                        lblClass.SQLQuery = field +" <> -9999"
+                        lblClass.showClassLabels = True
+            else:
+                lyr1.showLabels = False
+
+            arcpy.mapping.UpdateLayer(df, lyr2, symbpath, True)
+            lyr2.symbology.valueField = field
+
+            if labels2:
+                if lyr2.supports("LABELCLASSES"):
+                    lyr2.showLabels = True
+                # print "Layer name: " + lyr2.name
+                    for lblClass in lyr2.labelClasses:
+                        lblClass.expression = expres
+                        lblClass.SQLQuery = field +" <> -9999"
+                        lblClass.showClassLabels = True
+            else:
+                lyr2.showLabels = False
+
+            arcpy.RefreshActiveView()
+            if prefix:
+                outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
+                print "Making a map at :" + outpath
+            else:
+                outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
+                "Making a map at :" + outpath
+            arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
+
+
+
+
+
+def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbology, prefix = False):
+    """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function allows specification of different label fields for the mapfields labels. ie use mapfields as difference in loss cost, but label the max and min percent change column. The mapfields and labelfields lists must be ordered in the same order so that the first value of mapfields will get labelled with the first value in labelfields. This function will zoom to the different layer attributes specified in the shpsubregioncol field."""
+    i= 0
+    for col in mapfields:
+        mapfields[i] = col[:10]
+        i += 1
+    i = 0
+    for col in labelfields:
+        labelfields[i] = col[:10]
+        i += 1
+
+    if isinstance(mxds, str):
+        newmxd = []
+        newmxd.append(mxds)
+        mxds = newmxd
+    if isinstance(mapfields, str):
+        newmapfields = []
+        newmapfields.append(mapfields)
+        mapfields = newmapfields
+    if isinstance(labelfields, str):
+        newlabelfields = []
+        newlabelfields.append(mapfields)
+        labelfieldsfields = newlabelfields
+
+    mapresolution = 300 #300 is common.
+
+    if symbology.lower() == "percent_change":
+        symbpath = arcpy.mapping.Layer("C:/Mapping_Project/MXDs/Symbology/PercentChange.lyr")
+    elif symbology.lower() == "diff_lc":
+        symbpath = arcpy.mapping.Layer('C:/Mapping_Project/MXDs/Symbology/DifferenceinLossCost.lyr')
+    elif symbology [-4:] == '.lyr':
+        symbpath = arcpy.mapping.Layer(symbology)
+    else:
+        print "You need to choose a symbology type: 'Percent_Change','Diff_LC', or a layerfile path"
+        return
+
+    rows = arcpy.SearchCursor(shapefile)
+    adminIDs = []
+    for row in rows:
+        val = row.getValue(shpsubregioncol)
+        if val not in adminIDs:
+            adminIDs.append(val)
+    del rows
+    for mxd in mxds:
+        mxdobj = arcpy.mapping.MapDocument(mxd)
+        df = arcpy.mapping.ListDataFrames(mxdobj)[0] #leave as default for these maps(will it change for other perils????)
+        for lyr in arcpy.mapping.ListLayers(mxdobj):
+            if lyr.name == "EUFL_RL15_Zips_Cover":
+                lyr2 = lyr
+            elif lyr.name == "EUFL_RL15_Zips_Cover2":
+                lyr3 = lyr
+        for lyr in arcpy.mapping.ListLayers(mxdobj):
+            if lyr.name == os.path.basename(shapefile).replace(".shp",""):
+                lyr.symbologyType == "GRADUATED_COLORS"
+                for field, label in zip(mapfields, labelfields):
+                    field = field [:10]
+                    label = label [:10]
+                    arcpy.mapping.UpdateLayer(df, lyr, symbpath, True)
+                    lyr.symbology.valueField = field
+                    expres = "str(int(round(float(["+label+"]) *100,0))) + '%'"
+                    print expres
+                    if lyr.supports("LABELCLASSES"):
+                        print "here"
+                        lyr.showLabels = True
+                        for lblClass in lyr.labelClasses:
+                            lblClass.expression = expres
+                            lblClass.SQLQuery = field +" <> -9999"
+                            lblClass.showClassLabels = True
+
+                    for adminID in adminIDs:
+                        if adminID[:2] in ['BE','UK','GM']:
+                            adminID = str(adminID)
+
+                            query1 = '"'+ shpsubregioncol + '" = ' + "'" + adminID + "'"
+                            query2 = '"'+ shpsubregioncol + '" <> ' + "'" + adminID + "'"
+                            query3 = '"'+ shpsubregioncol + '" <> ' + "'" + adminID + "'"
+                            print shpsubregioncol, adminID, query1
+                            lyr.definitionQuery =  query1
+                            lyr2.definitionQuery = query2
+                            lyr3.definitionQuery = query3
+
+                            ext = lyr.getSelectedExtent(True)
+                            df.extent = ext
+                            # df.panToExtent(lyr.getSelectedExtent())
+                            # df.zoomToSelectedFeatures()
+                            arcpy.RefreshActiveView()
+                            if prefix:
+                                outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
+                                print "Making a map at :" + outpath
+                            else:
+                                outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
+                                "Making a map at :" + outpath
+                            arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
+
+###############################################################################
+
 
 
 

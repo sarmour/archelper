@@ -6,13 +6,16 @@ internal_files = imp.load_source('internal_files', r'C:\archelper\archelper\inte
 mapping_files = imp.load_source('mapping_files',r'c:\archelper\archelper\mapping_files.py')
 
 
-
 # csvfile = "C:\workspace/130916_Aviva_2014Rnwl_UKFL_v13_EDM.csv"
+
 shpfile = "C:\Mapping_Project\Shapefiles\EUFL_RL15_Zips.shp"
+lyrfile = "C:\Mapping_Project\MXDs\Symbology\TIV_Symb_Millions.lyr"
+
 
 folderpath = "C:\workspace"
 csvfiles = mapping_files.get_csvlist(folderpath)
 print csvfiles
+
 # csvcols = mapping_files.csv_getcols(csvfile)
 # print csvcols
 # shpcols = mapping_files.shp_getcols(shpfile)
@@ -29,8 +32,7 @@ for csvfile in csvfiles:
     mappingcol = ['TIV_USD']
 
     mxds = mapping_files.mxd_getlist()
-    print mxds
+    # print mxds
     prefix = os.path.basename(csvfile).rstrip('.csv')
     print prefix
-    lyrfile = "C:\Mapping_Project\MXDs\Symbology\TIV_Symb_Millions.lyr"
     mapping_files.map_create1(mxds, shpfile, mappingcol, lyrfile,'', prefix)
