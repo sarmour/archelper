@@ -1,7 +1,7 @@
 import os
 import shutil
 
-def SetupSymb():
+def symb_setup():
     """This function creates local copies of symbology. """
     destsymbdir = "C:\Mapping_Project\MXDs\Symbology"
     if not os.path.exists("C:\Mapping_Project\MXDs\Symbology"):
@@ -9,12 +9,12 @@ def SetupSymb():
     if not os.path.exists("C:\Mapping_Project\MXDs\Symbology\PercentChange.lyr"):
         for fl in glob(r"\\ca1ntap01\grm\PAT\ArcMappingTool\Symbology\PercentChange\\*"):
             shutil.copy2(fl,destsymbdir)
-def SetupPerilsEUWS(maptype):
+def peril_setup_EUWS(maptype):
     """ Moves the RMS MXD template and shapefiles from the GRM drive to the local drive. MXD location is hardcoded. Maptype options = 'CRESTA' or 'POST'"""
     destmxddir = "C:\Mapping_Project\MXDs"
     destSHPdir = "C:\Mapping_Project\Shapefiles"
 
-    SetupSymb()
+    symb_setup()
     if maptype == 'CRESTA':
         try:
             shutil.copy2(r"\\ca1ntap01\grm\PAT\ArcMappingTool\MXDs\EUWS\EUWS_CRESTA.mxd",destmxddir)
@@ -22,7 +22,7 @@ def SetupPerilsEUWS(maptype):
             if os.path.exists("C:\Mapping_Project\MXDs\EUWS_CRESTA.mxd") :
                     print "The EUWS map already exists on your local machine."
             else:
-                print "Error with SetupPerilsEUWS"
+                print "Error with peril_setup_EUWS"
 
         for fl in glob(r"\\ca1ntap01\grm\PAT\ArcMappingTool\Shapefiles\EUWS_CRESTA\*"):
             try:
@@ -36,7 +36,7 @@ def SetupPerilsEUWS(maptype):
             if os.path.exists("C:\Mapping_Project\MXDs\EUWS_Postcode.mxd") :
                     print "The EUWS map already exists on your local machine."
             else:
-                print "Error with SetupPerilsEUWS"
+                print "Error with peril_setup_EUWS"
 
         for fl in glob(r"\\ca1ntap01\grm\PAT\ArcMappingTool\Shapefiles\EUWS_Postcode\*"):
             try:
@@ -44,12 +44,12 @@ def SetupPerilsEUWS(maptype):
             except:
                 print "Was not able to copy over ", os.path.basename(fl)
 
-def SetupPerilsEUFL(maptype):
+def peril_setup_EUFL(maptype):
     """ Moves the RMS MXD template and shapefiles from the GRM drive to the local drive. MXD location is hardcoded. Maptype options = 'CRESTA' or 'POST'"""
     destmxddir = "C:\Mapping_Project\MXDs"
     destSHPdir = "C:\Mapping_Project\Shapefiles"
 
-    SetupSymb()
+    symb_setup()
     if maptype == 'CRESTA':
         try:
             shutil.copy2(r"\\ca1ntap01\grm\PAT\ArcMappingTool\MXDs\EUFL\EUFL_CRESTA.mxd",destmxddir)
@@ -57,7 +57,7 @@ def SetupPerilsEUFL(maptype):
             if os.path.exists("C:\Mapping_Project\MXDs\EUFL_CRESTA.mxd") :
                     print "The EUFL map already exists on your local machine."
             else:
-                print "Error with SetupPerilsEUFL"
+                print "Error with peril_setup_EUFL"
 
         for fl in glob(r"\\ca1ntap01\grm\PAT\ArcMappingTool\Shapefiles\EUFL_CRESTA\*"):
             try:
@@ -71,7 +71,7 @@ def SetupPerilsEUFL(maptype):
             if os.path.exists("C:\Mapping_Project\MXDs\EUFL_Postcode.mxd") :
                     print "The EUFL map already exists on your local machine."
             else:
-                print "Error with SetupPerilsEUFL"
+                print "Error with peril_setup_EUFL"
 
         for fl in glob(r"\\ca1ntap01\grm\PAT\ArcMappingTool\Shapefiles\EUFL_Postcode\*"):
             try:

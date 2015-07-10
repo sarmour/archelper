@@ -143,7 +143,7 @@ def shp_addcols(shapefile, cols, datatype):
 
         If you try to add a duplicate column that is already in the shapefile, the existing duplicate column will be deleted.
     """
-    if type(cols) is list:
+    if isinstance(cols,list):
         for col in cols:
             col = col[:10]
             if arcpy.ListFields(shapefile, col):
@@ -312,7 +312,7 @@ def mxd_getlayers(mxds):
     """Prints the available layers in the mxd document. A string version of the layer name is returned. mxd_getlayers(mxds = 'mxdpath' or ['mxdpath1','mxdpath2'])"""
 
     lyrlist = []
-    if type(mxds) is list:
+    if isinstance(mxds, list):
         for mxdpath in mxds:
             print mxdpath
             mxd = arcpy.mapping.MapDocument(mxdpath)
@@ -324,7 +324,7 @@ def mxd_getlayers(mxds):
         for row in lyrlist:
             print row
         return lyrlist
-    elif type(mxds) is str:
+    elif isinstance(mxds,str):
         mxd = arcpy.mapping.MapDocument(mxds)
         i = 0
         for lyr in arcpy.mapping.ListLayers(mxd):
@@ -337,18 +337,18 @@ def mxd_getlayers(mxds):
     else:
         print "The mxd needs to be formatted as a list, not a string. add brackets around the variable ['mxdpath']"
 
-def map_create1(mxds,shapefile, mapfields,symbology, labels = False):
+def map_create1(mxds,shapefile, mapfields,symbology, labels = False , prefix = None):
     """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. If the symbology does not exist locally, this function will copy the necessary files from the network into the mxd/symbology folder. """
     i= 0
     for col in mapfields:
         mapfields[i] = col[:10]
         i += 1
     i = 0
-    if type(mxds) is str:
+    if isinstance(mxds, str):
         newmxd = []
         newmxd.append(mxds)
         mxds = newmxd
-    if type(mapfields) is str:
+    if isinstance(mapfields, str):
         newmapfields = []
         newmapfields.append(mapfields)
         mapfields = newmapfields
@@ -390,10 +390,16 @@ def map_create1(mxds,shapefile, mapfields,symbology, labels = False):
                     else:
                         lyr.showLabels = False
                     arcpy.RefreshActiveView()
-                    arcpy.mapping.ExportToJPEG(mxdobj, "C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field +".jpg", resolution=mapresolution)
-                    print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + ".jpg"
+                    if prefix:
+                        outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
+                        print outpath
+                    else:
+                        outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
+                        print outpath
+                    arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
+                    print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
 
-def map_create2(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 = False):
+def map_create2(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 = False, prefix = None):
     """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function will update the symbology and labels for two shapefiles. They must have the same mapfields. Symbology options are diff_lc and percent_change. If labels1 or labels2 is True, the mapfields will be labelled """
 
     i= 0
@@ -401,11 +407,11 @@ def map_create2(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 =
         mapfields[i] = col[:10]
         i += 1
 
-    if type(mxds) is str:
+    if isinstance(mxds, str):
         newmxd = []
         newmxd.append(mxds)
         mxds = newmxd
-    if type(mapfields) is str:
+    if isinstance(mapfields, str):
         newmapfields = []
         newmapfields.append(mapfields)
         mapfields = newmapfields
@@ -467,8 +473,11 @@ def map_create2(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 =
                 lyr2.showLabels = False
 
             arcpy.RefreshActiveView()
-            arcpy.mapping.ExportToJPEG(mxdobj, "C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + symbology +".jpg", resolution=mapresolution)
-            print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + symbology +".jpg"
+            if prefix:
+                arcpy.mapping.ExportToJPEG(mxdobj, 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg', resolution=mapresolution)
+            else:
+                arcpy.mapping.ExportToJPEG(mxdobj, 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg', resolution=mapresolution)
+            print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
 
 
 def map_create3(mxds,shapefile,mapfields, labelfields, symbology):
@@ -479,11 +488,11 @@ def map_create3(mxds,shapefile,mapfields, labelfields, symbology):
         mapfields[i] = col[:10]
         i += 1
 
-    if type(mxds) is str:
+    if isinstance(mxds, str):
         newmxd = []
         newmxd.append(mxds)
         mxds = newmxd
-    if type(mapfields) is str:
+    if isinstance(mapfields, str):
         newmapfields = []
         newmapfields.append(mapfields)
         mapfields = newmapfields
@@ -520,8 +529,8 @@ def map_create3(mxds,shapefile,mapfields, labelfields, symbology):
                             lblClass.SQLQuery = field +" <> -9999"
                             lblClass.showClassLabels = True
                     arcpy.RefreshActiveView()
-                    arcpy.mapping.ExportToJPEG(mxdobj, "C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + symbology +".jpg", resolution=mapresolution)
-                    print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + symbology +".jpg"
+                    arcpy.mapping.ExportToJPEG(mxdobj, "C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + symbology +'.jpg', resolution=mapresolution)
+                    print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + symbology +'.jpg'
 
 
 
@@ -537,15 +546,15 @@ def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbolog
         labelfields[i] = col[:10]
         i += 1
 
-    if type(mxds) is str:
+    if isinstance(mxds, str):
         newmxd = []
         newmxd.append(mxds)
         mxds = newmxd
-    if type(mapfields) is str:
+    if isinstance(mapfields, str):
         newmapfields = []
         newmapfields.append(mapfields)
         mapfields = newmapfields
-    if type(labelfields) is str:
+    if isinstance(labelfields, str):
         newlabelfields = []
         newlabelfields.append(mapfields)
         labelfieldsfields = newlabelfields
@@ -615,13 +624,13 @@ def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbolog
                             # df.panToExtent(lyr.getSelectedExtent())
                             # df.zoomToSelectedFeatures()
                             arcpy.RefreshActiveView()
-                            arcpy.mapping.ExportToJPEG(mxdobj, "C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + adminID + "_" + field + symbology + ".jpg", resolution=mapresolution)
-                            print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + adminID +"_" +field + symbology + ".jpg"
+                            arcpy.mapping.ExportToJPEG(mxdobj, "C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + adminID + "_" + field + symbology + '.jpg', resolution=mapresolution)
+                            print "New map: C:/Mapping_Project/Out/"+ os.path.basename(mxd).rstrip('.mxd') +'_' + adminID +"_" +field + symbology + '.jpg'
 
 
 ###############################################################################
 
-def JoinSHPspecial(shapefile, shapejoincol, shapefile2, shapejoincol2, addcols):
+def shp_maxmin_newshp(shapefile, shapejoincol, shapefile2, shapejoincol2, addcols):
     """Not using this function for the project, but it works, so i'm leaving it here. This function adds max and min values associated with shapefile1 to shapefile2. If shapefile 1 has 3 postcodes in a county, this script will add the max and min value to shapefile 2 for that county. The value -9999 in a shpfile is treated as unknown rather than a minimum change."""
     i= 0
     for col in addcols:

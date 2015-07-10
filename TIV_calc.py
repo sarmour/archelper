@@ -1,4 +1,6 @@
+"""This script will create TIV maps."""
 import imp
+import os
 
 internal_files = imp.load_source('internal_files', r'C:\archelper\archelper\internal_files.py')
 mapping_files = imp.load_source('mapping_files',r'c:\archelper\archelper\mapping_files.py')
@@ -14,18 +16,21 @@ print csvfiles
 # csvcols = mapping_files.csv_getcols(csvfile)
 # print csvcols
 # shpcols = mapping_files.shp_getcols(shpfile)
-# print shpcols
+# print shpcols'
 
-# mapping_files.shp_removecols(shpfile, ['LC_Haz','LC_Vuln','LC_PLA_Win','LC_Overall','PC_Haz','PC_Vuln','PC_PLA_Wind','PC_Overall','L_PC_Haz','L_PC_Vuln','L_PC_PLA_W','L_PC_Overa'])
+# removecols = ['portnum','portname','CountryRMS','join_col','peril','TIV_USD']
+# mapping_files.shp_removecols(shpfile, removecols)
 
 
 for csvfile in csvfiles:
-    mapping_files.shp_joincsv(csvfile, shpfile,  'JOIN', 4, 6)
+    print csvfile
+    mapping_files.shp_joincsv(csvfile, shpfile,  'JOIN', 1, 3)
 
     mappingcol = ['TIV_USD']
 
     mxds = mapping_files.mxd_getlist()
     print mxds
-
+    prefix = os.path.basename(csvfile).rstrip('.csv')
+    print prefix
     lyrfile = "C:\Mapping_Project\MXDs\Symbology\TIV_Symb_Millions.lyr"
-    mapping_files.map_create1(mxds, shpfile, mappingcol, lyrfile, labels = False)
+    mapping_files.map_create1(mxds, shpfile, mappingcol, lyrfile,'', prefix)
