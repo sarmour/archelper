@@ -210,7 +210,7 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldinde
     # for L in csvjoinlist:
     #     if L not in shpjoinlist:
     #         missingcsvvals.append(l)
-
+    del rows
     return #missingcsvvals #these values are missing
 
 

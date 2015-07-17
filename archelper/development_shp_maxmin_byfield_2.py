@@ -11,7 +11,7 @@ def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols)
     newcols = []
     for col in maxmin_cols:
         newcols.append("L_" + col[:8])
-    mapping_files.shp_addcols(shapefile, newcols, "STRING")
+# mapping_files.shp_addcols(shapefile, newcols, "STRING")
     rows = arcpy.UpdateCursor(shapefile)
     shpvallist = []
     i = 0
@@ -30,20 +30,22 @@ def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols)
 
     for k,g in itertools.groupby(shpvallist, operator.itemgetter(0)):
         vals = list(g)
-        for item in vals: ### not going to work for places where there's just one value per admin code such as monoco. Can add a len() conditional statement to find if list(g) is greater than 1?
-            if int(item[2]) == -9999:
-                vals.remove(item) ####This part isnt working
-        vals = sorted(vals, key = lambda x: x[2])
-        ##print vals
+
         if len(vals) == 0:
             continue
         elif len(vals) == 1:
+            if float(vals[0][2]) == -9999:
+                continue
             maxval = minval = vals[0]
         else:
+            for item in vals: ### not going to work for places where there's just one value. Can add a length function?
+                if int(item[2]) == -9999:
+                    vals.remove(item) ####This part isnt working
+                vals = sorted(vals, key = lambda x: x[2])
             minval = vals[0]
             maxval = vals[-1]
         mydict[k]= {'maxpost':maxval[1],'maxchange':maxval[2],'minpost':minval[1],'minchange':minval[2]}
-        templist.append(vals)
+
 
     rows = arcpy.UpdateCursor(shapefile)
     for row in rows:
@@ -59,18 +61,15 @@ def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols)
             # print [adminval, mydict[adminval]['maxpost'], mydict[adminval]['minpost']]
     del row, rows
 
-    for item in templist:
-        if len(item) < 3:
-            print item, len(item)
-            if item[2] == -9999:
-                templist.remove(item)
-    with open('C:/workspace/test_wremove.csv', 'w') as myfile:
-        wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
-        for item in templist:
-            wr.writerow(item)
-
-
-
+    # for item in templist:
+    #     if len(item) < 3:
+    #         print item, len(item)
+    #         if item[2] == -9999:
+    #             templist.remove(item)
+    # with open('C:/workspace/test_wremove.csv', 'w') as myfile:
+    #     wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    #     for item in templist:
+    #         wr.writerow(item)
 
 shpfile = "C:\Mapping_Project\Shapefiles\EUFL_RL15_Zips.shp"
 shpjoincol = "JOIN"
