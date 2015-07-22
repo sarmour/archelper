@@ -1,10 +1,10 @@
 """
 This module helps reduce the need to know arcpy for mapping. There are a few basic functions here that, when combined correctly, can create any number of maps quickly. This tool can use multiple CSVs, columns, and MXDs to create a large number of maps. Module users should use the create_dir() function first to set-up the correct C:/Mapping_Project structure. This module is designed to work with a csv containing values that should be mapped using graduated symbology. The user needs a CSV, shapefiles for mapping, mapping documents (.mxd files), and symbology.
 """
-
-import os
-import operator
 import arcpy
+import operator
+import os
+import itertools
 from glob import glob
 
 def create_dir():
@@ -289,68 +289,53 @@ def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols)
         newcols.append("L_" + col[:8])
     shp_addcols(shapefile, newcols, "STRING")
 
-    rows = arcpy.SearchCursor(shapefile)
-    shpvallist = []
-    joinlist = []
-    for row in rows:
-        vals = {}
-        vals[aggregation_column] = str(row.getValue(aggregation_column))
-        vals[shapejoincol] = str(row.getValue(shapejoincol))
-        joinlist.append(vals[aggregation_column])
-        for val in maxmin_cols:
-            vals[val[:10]] = float(row.getValue(val[:10]))
-        shpvallist.append(vals)
-    # print shpvallist[:10]
-    joinlist = set(joinlist)
-    coldict = {}
     for col in maxmin_cols:
-        col = col[:10]
-        newdict = {}
-        for adminval in joinlist:
-            vals = []
-            for row in shpvallist:
-                if row[str(aggregation_column)] == adminval:
-                    postalcode = str(row[shapejoincol])
-                    if int(row[col]) == -9999: #use -9999 as a key for no data
-                        val = ''
-                    else:
-                        val = row[col]
-                    vals.append((postalcode, val))
-            # try:
-            i = 0
-            for postalcode, val in vals:
-                if val == -9999:
+        col =  col[:10]
+        rows = arcpy.UpdateCursor(shapefile)
+        shpvallist = []
+        i = 0
+        for row in rows:
+            adminval = row.getValue(aggregation_column)
+            maxminkey = str(row.getValue(shapejoincol))
+            val = float(row.getValue(col))
+            shpvallist.append([adminval, maxminkey, val])
+        del row, rows
+        mydict = {}
+        shpvallist.sort(key = operator.itemgetter(0,2)) #must sort to use itertools.groupby
+        for k,g in itertools.groupby(shpvallist, operator.itemgetter(0)):
+            vals = list(g)
+            if len(vals) == 0:
+                continue
+            elif len(vals) == 1:
+                if float(vals[0][2]) == -9999:
                     continue
-                elif i == 0:
-                    maxpost, maxval = postalcode, val
-                    minpost, minval = postalcode, val
-                elif val > maxval:
-                    maxpost, maxval = postalcode, val
-                elif val < minval:
-                    minpost, minval = postalcode, val
-                i += 1
-            i = 0
-            newdict[str(adminval)] = (maxpost, maxval,minpost, minval)
-        coldict[col] = newdict
-
-    for col in maxmin_cols:
-        col = col[:10]
-        l_col = "L_" + str(col)[:8]
-        vals = coldict[col]
-        del rows
+                maxval = minval = vals[0]
+            else:
+                vals = [y for y in vals if y[2] <> -9999]
+                vals = sorted(vals, key = lambda x: x[2])
+                try:
+                    minval = vals[0]
+                    maxval = vals[-1]
+                except:
+                    print vals
+            mydict[k]= {'maxpost':maxval[1],'maxchange':maxval[2],'minpost':minval[1],'minchange':minval[2]}
+            del minval, maxval
         rows = arcpy.UpdateCursor(shapefile)
         for row in rows:
-            shpjoinval = str(row.getValue(aggregation_column))
-            post = str(row.getValue(shapejoincol))
-            currentval = row.getValue(col)
-            maxpost = vals[shpjoinval][0]
-            minpost = vals[shpjoinval][2]
-            if post in (maxpost, minpost):
-                row.setValue(l_col,"{0:.0f}%".format(currentval*100))
-                rows.updateRow(row)
-    print "Finished adding the max and min percent change values to the shapefile. Here are the new column headers"
+            adminval = row.getValue(aggregation_column)
+            maxminkey = row.getValue(shapejoincol)
+            if maxminkey == mydict[adminval]['maxpost']:
+                    row.setValue(str('L_' + col[:8]),float(mydict[adminval]['maxchange']))
+                    rows.updateRow(row)
+            elif maxminkey == mydict[adminval]['minpost']:
+                    row.setValue(str('L_' + col[:8]),float(mydict[adminval]['minchange']))
+                    rows.updateRow(row)
+        del row, rows
     print newcols
     return newcols
+
+
+
 
 def shp_calcfield(shapefile, fieldname, py_expression):
     """Calculate values for a field given a python expression as a string. The py expression should be formatted with ! characters before and after the field name. ie.py_expression ='str(!POSTCODE!) + '_' + str(!JOIN!) """
@@ -701,3 +686,72 @@ def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbolog
 
 
 
+# def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols):
+#     """THIS DOES NOT WORK CORRECTLY. This function will loop through a shapefile and group values based upon the specified 'aggregation_column'. The function will then calculate the maximum and minimum for each of the maxmin_cols specified. A new field will be added to the shapefile that includes "L_" and the first 8 characters of each value in the maxmin_cols. Use these new columns to label the max and min values when creating maps. Returns the new label columns"""
+#     newcols = []
+#     for col in maxmin_cols:
+#         newcols.append("L_" + col[:8])
+#     shp_addcols(shapefile, newcols, "STRING")
+
+#     rows = arcpy.SearchCursor(shapefile)
+#     shpvallist = []
+#     joinlist = []
+#     for row in rows:
+#         vals = {}
+#         vals[aggregation_column] = str(row.getValue(aggregation_column))
+#         vals[shapejoincol] = str(row.getValue(shapejoincol))
+#         joinlist.append(vals[aggregation_column])
+#         for val in maxmin_cols:
+#             vals[val[:10]] = float(row.getValue(val[:10]))
+#         shpvallist.append(vals)
+#     # print shpvallist[:10]
+#     joinlist = set(joinlist)
+#     coldict = {}
+#     for col in maxmin_cols:
+#         col = col[:10]
+#         newdict = {}
+#         for adminval in joinlist:
+#             vals = []
+#             for row in shpvallist:
+#                 if row[str(aggregation_column)] == adminval:
+#                     postalcode = str(row[shapejoincol])
+#                     if int(row[col]) == -9999: #use -9999 as a key for no data
+#                         val = ''
+#                     else:
+#                         val = row[col]
+#                     vals.append((postalcode, val))
+#             # try:
+#             i = 0
+#             for postalcode, val in vals:
+#                 if val == -9999:
+#                     continue
+#                 elif i == 0:
+#                     maxpost, maxval = postalcode, val
+#                     minpost, minval = postalcode, val
+#                 elif val > maxval:
+#                     maxpost, maxval = postalcode, val
+#                 elif val < minval:
+#                     minpost, minval = postalcode, val
+#                 i += 1
+#             i = 0
+#             newdict[str(adminval)] = (maxpost, maxval,minpost, minval)
+#         coldict[col] = newdict
+
+#     for col in maxmin_cols:
+#         col = col[:10]
+#         l_col = "L_" + str(col)[:8]
+#         vals = coldict[col]
+#         del rows
+#         rows = arcpy.UpdateCursor(shapefile)
+#         for row in rows:
+#             shpjoinval = str(row.getValue(aggregation_column))
+#             post = str(row.getValue(shapejoincol))
+#             currentval = row.getValue(col)
+#             maxpost = vals[shpjoinval][0]
+#             minpost = vals[shpjoinval][2]
+#             if post in (maxpost, minpost):
+#                 row.setValue(l_col,"{0:.0f}%".format(currentval*100))
+#                 rows.updateRow(row)
+#     print "Finished adding the max and min percent change values to the shapefile. Here are the new column headers"
+#     print newcols
+#     return newcols

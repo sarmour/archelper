@@ -17,9 +17,9 @@ def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols)
     i = 0
     for row in rows:
         adminval = row.getValue(aggregation_column)
-        postcode = row.getValue(shapejoincol)
-        val = row.getValue('PC_Haz')
-        shpvallist.append([adminval, postcode, float(val)])
+        postcode = str(row.getValue(shapejoincol))
+        val = float(row.getValue('PC_Haz'))
+        shpvallist.append([adminval, postcode, val])
     del row, rows
     shpvallist.sort(key = operator.itemgetter(0,2))
     ##print shpvallist[:10]
@@ -38,14 +38,14 @@ def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols)
                 continue
             maxval = minval = vals[0]
         else:
-            for item in vals: ### not going to work for places where there's just one value. Can add a length function?
-                if int(item[2]) == -9999:
+            for i, item in enumerate(vals):
+                if vals[i][2] == -9999:
+                    # print item
                     vals.remove(item) ####This part isnt working
-                vals = sorted(vals, key = lambda x: x[2])
+            vals = sorted(vals, key = lambda x: x[2])
             minval = vals[0]
             maxval = vals[-1]
         mydict[k]= {'maxpost':maxval[1],'maxchange':maxval[2],'minpost':minval[1],'minchange':minval[2]}
-
 
     rows = arcpy.UpdateCursor(shapefile)
     for row in rows:
@@ -61,15 +61,10 @@ def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols)
             # print [adminval, mydict[adminval]['maxpost'], mydict[adminval]['minpost']]
     del row, rows
 
-    # for item in templist:
-    #     if len(item) < 3:
-    #         print item, len(item)
-    #         if item[2] == -9999:
-    #             templist.remove(item)
-    # with open('C:/workspace/test_wremove.csv', 'w') as myfile:
-    #     wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
-    #     for item in templist:
-    #         wr.writerow(item)
+    with open('C:/workspace/code_debugger.csv', 'w') as myfile:
+        wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+        for item in templist:
+            wr.writerow(item)
 
 shpfile = "C:\Mapping_Project\Shapefiles\EUFL_RL15_Zips.shp"
 shpjoincol = "JOIN"
