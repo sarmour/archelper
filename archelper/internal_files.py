@@ -31,7 +31,7 @@ def peril_setup_EUWS(maptype):
                 shutil.copy2(fl,destSHPdir)
             except:
                 print "Was not able to copy over ", os.path.basename(fl)
-    if maptype == 'POST':
+    elif maptype == 'POST':
         try:
             shutil.copy2(r"\\ca1ntap01\grm\PAT\ArcMappingTool\MXDs\EUWS\EUWS_Postcode.mxd",destmxddir)
         except:
@@ -45,6 +45,9 @@ def peril_setup_EUWS(maptype):
                 shutil.copy2(fl,destSHPdir)
             except:
                 print "Was not able to copy over ", os.path.basename(fl)
+    else:
+        print " select a maptype: CRESTA or POST"
+    return
 
 def peril_setup_EUFL(maptype):
     """ Moves the RMS MXD template and shapefiles from the GRM drive to the local drive. MXD location is hardcoded. Maptype options = 'CRESTA' or 'POST'"""
@@ -80,4 +83,6 @@ def peril_setup_EUFL(maptype):
                 shutil.copy2(fl,destSHPdir)
             except:
                 print "Was not able to copy over ", os.path.basename(fl)
-
+    else:
+        print " select a maptype: CRESTA or POST"
+    return

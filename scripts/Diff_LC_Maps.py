@@ -25,7 +25,6 @@ allcols = mappingcols #for deleting data after mapping process
 
 # for csvfile in csvfiles: ##start loop for entire script here
 
-
 mapping_files.shp_joincsv(csvfile, shpfile,  shpjoincol, 0, 1)
 filename = os.path.basename(csvfile).rstrip('.csv')
 
@@ -38,9 +37,9 @@ print mxds
 
 
 ####################CREATE THE COUNTRY MAPS##########################
-countrymxds = ['C:/Mapping_Project/MXDs\\EUFL_PC_Belgium.mxd', 'C:/Mapping_Project/MXDs\\EUFL_PC_Europe.mxd', 'C:/Mapping_Project/MXDs\\EUFL_PC_Germany.mxd', 'C:/Mapping_Project/MXDs\\EUFL_PC_UK.mxd']
+countrymxds = ['C:/Mapping_Project/MXDs\\EUFL_PC_Belgium.mxd', 'C:/Mapping_Project/MXDs\\EUFL_PC_Germany.mxd', 'C:/Mapping_Project/MXDs\\EUFL_PC_UK.mxd']
 
-labels = mapping_files.shp_maxmin_byfield(shpfile, shpjoincol, 'Admin1ID', perchangecols)
+labels = mapping_files.shp_maxmin_byfield(shpfile, shpjoincol, 'Admin1ID', perchangecols, percent_change = True)
 
 mapping_files.map_create2(countrymxds,shpfile,mappingcols, labels, "diff_lc", filename)
 

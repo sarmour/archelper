@@ -26,19 +26,17 @@ def create_dir():
         print "There was an error creating the directories."
 
 def create_workspace():
-    """Returns the path of the workspace. Checks if a .gbp workspace exists. If there is not one, the script will make one. This script returns the path of the workspace. The .gbp workspace is required to use the csv_jointable function and shp_jointable functions.
+    """Checks if a .gbp workspace exists. If there is not one, the script will make one. This script returns the path of the workspace. The .gbp workspace is required to use the csv_jointable function and shp_jointable functions.
     """
     path = 'C://Mapping_Project//workspace.gdb'
     if not os.path.exists('C://Mapping_Project//workspace.gdb'):
         arcpy.CreateFileGDB_management('C://Mapping_Project//', 'workspace.gdb')
     else:
-        print 'you already have a workspace there'
+        print 'A workspace exists at the path "C://Mapping_Project"'
     return  path
 
-
-
 def csv_checkmissingshpvals(csvfile, joincol, shpfile, shpfileheader):
-    """This script will check to see if any join column values in the CSV are missing in the shapefile. Returns a list of missing shapefile. csvfile should be a filepath. joincol is the column index in the csv starting at 0. shapefile is shapefile path. shapefile header should be the column lookup name."""
+    """Checks to see if any join column values in the CSV are missing in the shapefile. Returns a list of missing shapefile values. The csvfile should be a filepath. The joincol is the column index in the csv starting at 0. Shapefile is the shapefile path. Shapefileheader should be the column lookup name."""
     csvvals = []
     with open(csvfile) as csv:
         csv.next()
@@ -63,7 +61,7 @@ def csv_getcols(csvfile):
     return cols
 
 def csv_getall(csvfile):
-    """ Prints the lines in an unformatted csv. To join the csv, please use the JoinCSV function. Returns the contents of the csvfile.
+    """ Returns the contents of the csvfile as a list. To join the csv, please use the shp_joincsv or (csv_jointable and shp_jointable) functions.
     """
     csvvals = []
     with open(csvfile) as csvfile1:
@@ -95,7 +93,7 @@ def csv_sort(csvfile, colindex=0, reverse=False):
     print "Finished sorting the csv"
 
 def csv_jointable(csvfile, workspace):
-    """ This function will import the csv to the workspace. This datatable will then be imported to a shapefile using the JoinSHP() function. This returns a string of the workspace and table name"""
+    """ Imports the csv to the arcgis workspace and returns a string with the workspace and table name. This datatable will then be imported to a shapefile using the shp_jointable() function."""
     tablename = os.path.basename(csvfile).rstrip('.csv')
     try:
         arcpy.Delete_management(workspace + '//' + tablename)
@@ -107,8 +105,7 @@ def csv_jointable(csvfile, workspace):
     return workspace + '//'+tablename
 
 def get_csvlist(folderpath):
-    """ This returns a list of the csv path for all files in the specified folder path."""
-
+    """ Returns a list csv paths for all files in the specified folder path."""
     return glob(folderpath + "/*.csv")
 
 def shp_getcols(shapefile):
@@ -282,13 +279,12 @@ def shp_maxmin_newshp(shapefile, shapejoincol, shapefile2, shapejoincol2, addcol
             except:
                 pass
 
-def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols):
-    """This function will loop through a shapefile and group values based upon the specified 'aggregation_column'. The function will then calculate the maximum and minimum for each of the maxmin_cols specified. A new field will be added to the shapefile that includes "L_" and the first 8 characters of each value in the maxmin_cols. Use these new columns to label the max and min values when creating maps. Returns the new label columns"""
+def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols, percent_change = False, diff_lc = False):
+    """This function will loop through a shapefile and group values based upon the specified 'aggregation_column'. The function will then calculate the maximum and minimum for each of the maxmin_cols specified. A new field will be added to the shapefile that includes "L_" and the first 8 characters of each value in the maxmin_cols. Use these new columns to label the max and min values when creating maps. Returns the new label columns. If percent_change = True, the labels will represent a percentage. If diff_lc is true, the labels will have 2 digits."""
     newcols = []
     for col in maxmin_cols:
         newcols.append("L_" + col[:8])
     shp_addcols(shapefile, newcols, "STRING")
-
     for col in maxmin_cols:
         col =  col[:10]
         rows = arcpy.UpdateCursor(shapefile)
@@ -309,15 +305,22 @@ def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols)
             elif len(vals) == 1:
                 if float(vals[0][2]) == -9999:
                     continue
-                maxval = minval = vals[0]
+                maxval =  list(vals[0])
+                minval =  list(vals[0])
             else:
                 vals = [y for y in vals if y[2] <> -9999]
                 vals = sorted(vals, key = lambda x: x[2])
-                try:
-                    minval = vals[0]
-                    maxval = vals[-1]
-                except:
-                    print vals
+                minval = list(vals[0])
+                maxval = list(vals[-1])
+            try:
+                if percent_change == True:
+                    maxval[2] = "{:.0%}".format(maxval[2])
+                    minval[2] = "{:.0%}".format(minval[2])
+                elif diff_lc == True:
+                    maxval[2] = "{:.2f}".format(maxval[2])
+                    minval[2] = "{:.2f}".format(minval[2])
+            except:
+                print "Had issues formatting the number: " + maxval[2] + " or " + minval[2]
             mydict[k]= {'maxpost':maxval[1],'maxchange':maxval[2],'minpost':minval[1],'minchange':minval[2]}
             del minval, maxval
         rows = arcpy.UpdateCursor(shapefile)
@@ -325,17 +328,14 @@ def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols)
             adminval = row.getValue(aggregation_column)
             maxminkey = row.getValue(shapejoincol)
             if maxminkey == mydict[adminval]['maxpost']:
-                    row.setValue(str('L_' + col[:8]),float(mydict[adminval]['maxchange']))
+                    row.setValue(str('L_' + col[:8]),mydict[adminval]['maxchange'])
                     rows.updateRow(row)
             elif maxminkey == mydict[adminval]['minpost']:
-                    row.setValue(str('L_' + col[:8]),float(mydict[adminval]['minchange']))
+                    row.setValue(str('L_' + col[:8]),mydict[adminval]['minchange'])
                     rows.updateRow(row)
         del row, rows
     print newcols
     return newcols
-
-
-
 
 def shp_calcfield(shapefile, fieldname, py_expression):
     """Calculate values for a field given a python expression as a string. The py expression should be formatted with ! characters before and after the field name. ie.py_expression ='str(!POSTCODE!) + '_' + str(!JOIN!) """
