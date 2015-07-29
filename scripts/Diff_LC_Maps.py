@@ -21,11 +21,10 @@ csvfile = "C:\Mapping_Project\CSVs\TestPC_2.csv"
 
 mappingcols = ['LC_Haz', 'LC_Vuln', 'LC_PLA_Wind', 'LC_Overall']
 perchangecols = ['PC_Haz', 'PC_Vuln', 'PC_PLA_Wind', 'PC_Overall']
-allcols = mappingcols #for deleting data after mapping process
+allcols = list(mappingcols) #for deleting data after mapping process
 
 # for csvfile in csvfiles: ##start loop for entire script here
-
-mapping_files.shp_joincsv(csvfile, shpfile,  shpjoincol, 0, 1)
+# mapping_files.shp_joincsv(csvfile, shpfile,  shpjoincol, 0, 1)
 filename = os.path.basename(csvfile).rstrip('.csv')
 
 mxds = mapping_files.mxd_getlist()
@@ -37,14 +36,27 @@ print mxds
 
 
 ####################CREATE THE COUNTRY MAPS##########################
-countrymxds = ['C:/Mapping_Project/MXDs\\EUFL_PC_Belgium.mxd', 'C:/Mapping_Project/MXDs\\EUFL_PC_Germany.mxd', 'C:/Mapping_Project/MXDs\\EUFL_PC_UK.mxd']
+# countrymxds = ['C:/Mapping_Project/MXDs\\EUFL_PC_Belgium.mxd', 'C:/Mapping_Project/MXDs\\EUFL_PC_Germany.mxd', 'C:/Mapping_Project/MXDs\\EUFL_PC_UK.mxd']
 
-labels = mapping_files.shp_maxmin_byfield(shpfile, shpjoincol, 'Admin1ID', perchangecols, percent_change = True)
+# labels = mapping_files.shp_maxmin_byfield(shpfile, shpjoincol, 'Admin1ID', perchangecols, percent_change = True)
 
-mapping_files.map_create2(countrymxds,shpfile,mappingcols, labels, "diff_lc", filename)
+# mapping_files.map_create2(countrymxds,shpfile,mappingcols, labels, "diff_lc", filename)
 
-for val in labels:
-    allcols.append(val)
+# for val in labels:
+#     allcols.append(val)
+
+####################CREATE THE SUB-COUNTRY MAPS######################
+
+# subcountrymxds =
+# labels = mapping_files.shp_maxmin_byfield(shpfile, shpjoincol, 'CNY_CRESTA', perchangecols, percent_change = True)
+
+
+mapping_files.map_creat4(mxds, shapefile,'CNY_CRESTA',mappingcols, labels, "diff_lc", filename)
+
+
+
+
+
 
 ####################REMOvE COLS ADDED TO SHPFILE##############################
 mapping_files.shp_removecols(shpfile, allcols)

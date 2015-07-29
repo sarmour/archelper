@@ -9,21 +9,18 @@ from glob import glob
 
 def create_dir():
     """Creates an empty folder directory on the C drive called Mapping_Project. """
-    try:
-        if not os.path.exists("C:/Mapping_Project"):
-            os.mkdir("C:/Mapping_Project")
+    maindir = 'C:/Mapping_Project'
+    folderlist = [maindir, maindir +'/MXDs',maindir +'/Shapefiles',maindir +'/out',maindir +'/csvs',]
 
-        if not os.path.exists("C:/Mapping_Project/MXDs"):
-            os.mkdir("C:/Mapping_Project/MXDs")
+    for item in folderlist:
+        try:
+            if not os.path.exists(item):
+                os.mkdir(item)
+        except:
+            print "There was an error creating the directories."
 
-        if not os.path.exists("C:/Mapping_Project/Shapefiles"):
-            os.mkdir("C:/Mapping_Project/Shapefiles")
+    print "Empty folder directory created a C:/Mapping_Project. Put mxds, shapefiles, etc. in this folder directory."
 
-        if not os.path.exists("C:/Mapping_Project/Out"):
-            os.mkdir("C:/Mapping_Project/Out")
-        print "Empty folder directory created a C:/Mapping_Project. Add mxds, shapefiles, etc."
-    except:
-        print "There was an error creating the directories."
 
 def create_workspace():
     """Checks if a .gbp workspace exists. If there is not one, the script will make one. This script returns the path of the workspace. The .gbp workspace is required to use the csv_jointable function and shp_jointable functions.
@@ -66,7 +63,6 @@ def csv_getall(csvfile):
     csvvals = []
     with open(csvfile) as csvfile1:
         for line in csvfile1:
-            print line
             csvvals.append(line)
     return csvvals
 
@@ -106,14 +102,19 @@ def csv_jointable(csvfile, workspace):
 
 def get_csvlist(folderpath):
     """ Returns a list csv paths for all files in the specified folder path."""
+    for filename in glob(folderpath + "/*.csv"):
+        print filename
     return glob(folderpath + "/*.csv")
+
+
+
+
 
 def shp_getcols(shapefile):
     """Returns a list of shapefile columns. Shapefile should be a filepath"""
     mylist = []
     for field in arcpy.ListFields(shapefile):
         mylist.append(str(field.name.strip()))
-
     return mylist
 
 def shp_removecols(shapefile, cols):
@@ -163,7 +164,7 @@ def shp_addcols(shapefile, cols, datatype):
             arcpy.AddField_management(shapefile, col, datatype)
         print 'Added column to the shapefile:', col, datatype
 
-def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldindex):
+def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldindex, csvfieldtype = "double"):
     """ This function manually joins the CSV to the shapefile and does not use geodatabase tables like the JoinCSV() and JoinSHP() functions. This method should be easier and faster in most cases. In the CSV, the join column must be before the columns with mapping values. This code will map all fields from the mapping column onward (to the right). Returns missing cols. Column limit should be 10 characters."""
 
     cols = csv_getcols(csvfile)
@@ -175,19 +176,18 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldinde
             newcols.append(col[:10])
         i += 1
 
-    shp_addcols(shapefile, newcols, "double")
+    shp_addcols(shapefile, newcols, csvfieldtype)
     i = 0
     ct = 0
-    csvjoinlist = []
+    # csvjoinlist = []
 
     with open(csvfile, 'rb') as csvfile:
         lib = dict()
         csvfile.next() #scip the headers
         for row in csvfile:
             line = row.rstrip().split(",")
-            csvjoinlist.append(line[csvjoinindex])
+            # csvjoinlist.append(line[csvjoinindex])
             lib[line[csvjoinindex]] = lib.get(line[csvjoinindex],line[csvfieldindex:])
-
     rows = arcpy.UpdateCursor(shapefile)
     #rows = arcpy.UpdateCursor(shpfile,"","","","%s %s" % (shapefilejoincol, method)) ##sorted
     shpjoinlist = []
@@ -198,7 +198,7 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldinde
         try:
             vals = lib.get(shpjoinval)
             for ind, field in enumerate(newcols):
-                row.setValue(str(field),float(vals[ind]))
+                row.setValue(str(field),vals[ind])
                 rows.updateRow(row)
         except:
             pass
@@ -582,11 +582,12 @@ def map_create3(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 =
             arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
 
 
+###############################################################################
 
 
 
 def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbology, prefix = False):
-    """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function allows specification of different label fields for the mapfields labels. ie use mapfields as difference in loss cost, but label the max and min percent change column. The mapfields and labelfields lists must be ordered in the same order so that the first value of mapfields will get labelled with the first value in labelfields. This function will zoom to the different layer attributes specified in the shpsubregioncol field."""
+    """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function allows specification of different label fields for the mapfields labels. ie use mapfields as difference in loss cost, but label the max and min percent change column. The mapfields and labelfields lists must be ordered in the same order so that the first value of mapfields will get labelled with the first value in labelfields. This function will zoom to the different layer attributes specified in the shpsubregioncol field. Currently it's set to only do countries 'be', 'de', and 'uk'"""
     i= 0
     for col in mapfields:
         mapfields[i] = col[:10]
@@ -679,79 +680,4 @@ def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbolog
                                 "Making a map at :" + outpath
                             arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
 
-###############################################################################
 
-
-
-
-
-
-# def shp_maxmin_byfield(shapefile, shapejoincol, aggregation_column, maxmin_cols):
-#     """THIS DOES NOT WORK CORRECTLY. This function will loop through a shapefile and group values based upon the specified 'aggregation_column'. The function will then calculate the maximum and minimum for each of the maxmin_cols specified. A new field will be added to the shapefile that includes "L_" and the first 8 characters of each value in the maxmin_cols. Use these new columns to label the max and min values when creating maps. Returns the new label columns"""
-#     newcols = []
-#     for col in maxmin_cols:
-#         newcols.append("L_" + col[:8])
-#     shp_addcols(shapefile, newcols, "STRING")
-
-#     rows = arcpy.SearchCursor(shapefile)
-#     shpvallist = []
-#     joinlist = []
-#     for row in rows:
-#         vals = {}
-#         vals[aggregation_column] = str(row.getValue(aggregation_column))
-#         vals[shapejoincol] = str(row.getValue(shapejoincol))
-#         joinlist.append(vals[aggregation_column])
-#         for val in maxmin_cols:
-#             vals[val[:10]] = float(row.getValue(val[:10]))
-#         shpvallist.append(vals)
-#     # print shpvallist[:10]
-#     joinlist = set(joinlist)
-#     coldict = {}
-#     for col in maxmin_cols:
-#         col = col[:10]
-#         newdict = {}
-#         for adminval in joinlist:
-#             vals = []
-#             for row in shpvallist:
-#                 if row[str(aggregation_column)] == adminval:
-#                     postalcode = str(row[shapejoincol])
-#                     if int(row[col]) == -9999: #use -9999 as a key for no data
-#                         val = ''
-#                     else:
-#                         val = row[col]
-#                     vals.append((postalcode, val))
-#             # try:
-#             i = 0
-#             for postalcode, val in vals:
-#                 if val == -9999:
-#                     continue
-#                 elif i == 0:
-#                     maxpost, maxval = postalcode, val
-#                     minpost, minval = postalcode, val
-#                 elif val > maxval:
-#                     maxpost, maxval = postalcode, val
-#                 elif val < minval:
-#                     minpost, minval = postalcode, val
-#                 i += 1
-#             i = 0
-#             newdict[str(adminval)] = (maxpost, maxval,minpost, minval)
-#         coldict[col] = newdict
-
-#     for col in maxmin_cols:
-#         col = col[:10]
-#         l_col = "L_" + str(col)[:8]
-#         vals = coldict[col]
-#         del rows
-#         rows = arcpy.UpdateCursor(shapefile)
-#         for row in rows:
-#             shpjoinval = str(row.getValue(aggregation_column))
-#             post = str(row.getValue(shapejoincol))
-#             currentval = row.getValue(col)
-#             maxpost = vals[shpjoinval][0]
-#             minpost = vals[shpjoinval][2]
-#             if post in (maxpost, minpost):
-#                 row.setValue(l_col,"{0:.0f}%".format(currentval*100))
-#                 rows.updateRow(row)
-#     print "Finished adding the max and min percent change values to the shapefile. Here are the new column headers"
-#     print newcols
-#     return newcols
