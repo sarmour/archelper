@@ -189,7 +189,6 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldinde
             # csvjoinlist.append(line[csvjoinindex])
             lib[line[csvjoinindex]] = lib.get(line[csvjoinindex],line[csvfieldindex:])
     rows = arcpy.UpdateCursor(shapefile)
-    #rows = arcpy.UpdateCursor(shpfile,"","","","%s %s" % (shapefilejoincol, method)) ##sorted
     shpjoinlist = []
     missingshpvals = []
     for row in rows:
@@ -202,14 +201,8 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldinde
                 rows.updateRow(row)
         except:
             pass
-            # missingshpvals.append(shpjoinval) #This is the shapefile value that there is no corresponding CSV value for. This list is for debugging.
-    # missingcsvvals = []
-    # for L in csvjoinlist:
-    #     if L not in shpjoinlist:
-    #         missingcsvvals.append(l)
     del rows
-    return #missingcsvvals #these values are missing
-
+    return
 
 
 def shp_jointable(jointable, joinfield, shapefile, shpjoinfield, add_fields):
@@ -375,7 +368,7 @@ def mxd_getlayers(mxds):
     else:
         print "The mxd needs to be formatted as a list, not a string. add brackets around the variable ['mxdpath']"
 
-def map_create1(mxds,shapefile, mapfields,symbology, labels = False , prefix = None):
+def map_create1(mxds,shapefile, mapfields,symbology, labels = False , prefix = None, perchange_labels = False, LC_labels = False):
     """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC' or add your own layer. Labels can be set to True or False. If Diff_LC or Percent_change is specified, labels will be formatted. Prefix will add a prefix to the output file name. This is strongly recommended when mapping multiple CSVs. """
     i= 0
     for col in mapfields:
@@ -414,26 +407,27 @@ def map_create1(mxds,shapefile, mapfields,symbology, labels = False , prefix = N
                     arcpy.mapping.UpdateLayer(df, lyr, symbpath, True) #if you get a value error, it could be because of the layers source symbology no longer being available. It could also be because of a join issue or incorrect column names. The column name character limit is 10.
                     lyr.symbology.valueField = field
                     if labels:
-                            lyr.showLabels = True
-                            if symbology.lower() == "percent_change":
-                                expres = "str(int(round(float(["+field+"])*100,0))) + '%'"
-                            elif symbology.lower() == "diff_lc":
-                                expres = "str(round(float(["+field+"]),3))"
-                            else:
-                                expres = "["+field+"]"
-                            for lblClass in lyr.labelClasses:
-                                lblClass.expression = expres
-                                lblClass.SQLQuery = field +" <> -9999"
-                                lblClass.showClassLabels = True
+                        lyr.showLabels = True
+                        if (symbology.lower() == "percent_change") or (perchange_labels):
+                            expres = "str(int(round(float(["+field+"])*100,0))) + '%'"
+                        elif (symbology.lower() == "diff_lc") or (LC_labels):
+                            expres = "str(round(float(["+field+"]),3))"
+                        else:
+                            expres = "["+field+"]"
+                        for lblClass in lyr.labelClasses:
+                            print lblClass, expres
+                            lblClass.expression = expres
+                            lblClass.SQLQuery = field +" <> -9999"
+                            lblClass.showClassLabels = True
                     else:
                         lyr.showLabels = False
                     arcpy.RefreshActiveView()
                     if prefix:
                         outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
-                        print "Making a map at :" + outpath
+                        print "Making a map at:", outpath
                     else:
                         outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
-                        "Making a map at :" + outpath
+                        "Making a map at:", outpath
                     arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
 
 def map_create2(mxds,shapefile,mapfields, labelfields, symbology, prefix = False):
@@ -490,10 +484,10 @@ def map_create2(mxds,shapefile,mapfields, labelfields, symbology, prefix = False
 
                     if prefix:
                         outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
-                        print "Making a map at :" + outpath
+                        print "Making a map at:", outpath
                     else:
                         outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
-                        "Making a map at :" + outpath
+                        "Making a map at:", outpath
                     arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
 
 
@@ -575,17 +569,17 @@ def map_create3(mxds,shp1, shp2,  mapfields,symbology, labels1 = False,labels2 =
             arcpy.RefreshActiveView()
             if prefix:
                 outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
-                print "Making a map at :" + outpath
+                print "Making a map at:", outpath
             else:
                 outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
-                "Making a map at :" + outpath
+                "Making a map at:", outpath
             arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
 
 
 ###############################################################################
 
 
-
+#################NOT WORKING########################
 def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbology, prefix = False):
     """This function will create maps for all mxds specified and all fields in the mapfields list. The symbology options = 'Percent_Change' and 'Diff_LC'. This function allows specification of different label fields for the mapfields labels. ie use mapfields as difference in loss cost, but label the max and min percent change column. The mapfields and labelfields lists must be ordered in the same order so that the first value of mapfields will get labelled with the first value in labelfields. This function will zoom to the different layer attributes specified in the shpsubregioncol field. Currently it's set to only do countries 'be', 'de', and 'uk'"""
     i= 0
@@ -674,10 +668,10 @@ def map_create4(mxds,shapefile,shpsubregioncol, mapfields, labelfields, symbolog
                             arcpy.RefreshActiveView()
                             if prefix:
                                 outpath = 'C:/Mapping_Project/Out/'+ prefix +'_' + os.path.basename(mxd).rstrip('.mxd') +'_' + field +'.jpg'
-                                print "Making a map at :" + outpath
+                                print "Making a map at:", outpath
                             else:
                                 outpath = 'C:/Mapping_Project/Out/'+ os.path.basename(mxd).rstrip('.mxd') +'_' + field + '.jpg'
-                                "Making a map at :" + outpath
+                                "Making a map at:", outpath
                             arcpy.mapping.ExportToJPEG(mxdobj, outpath, resolution=mapresolution)
 
 
