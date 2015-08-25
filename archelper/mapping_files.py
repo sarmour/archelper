@@ -6,6 +6,7 @@ import operator
 import os
 import itertools
 from glob import glob
+import csv
 
 def create_dir():
     """Creates an empty folder directory on the C drive called Mapping_Project. """
@@ -35,10 +36,11 @@ def create_workspace():
 def csv_checkmissingshpvals(csvfile, joincol, shpfile, shpfileheader):
     """Checks to see if any join column values in the CSV are missing in the shapefile. Returns a list of missing shapefile values. The csvfile should be a filepath. The joincol is the column index in the csv starting at 0. Shapefile is the shapefile path. Shapefileheader should be the column lookup name."""
     csvvals = []
-    with open(csvfile) as csv:
-        csv.next()
-        for L in csv:
-            csvvals.append(l.split(',')[joincol])
+    with open(csvfile) as csvfile:
+        csvfile = csv.reader(csvfile)
+        csvfile.next()
+        for L in csvfile:
+            csvvals.append(L)
     shpvals = []
     rows = arcpy.SearchCursor(shpfile,fields = shpfileheader)
     for row in rows:
@@ -53,8 +55,8 @@ def csv_checkmissingshpvals(csvfile, joincol, shpfile, shpfileheader):
 
 def csv_getcols(csvfile):
     """ Returns a list of the CSV headers."""
-    with open(csvfile, 'rb') as csv:
-        cols = csv.next().strip().split(',')
+    with open(csvfile, 'rb') as csvfile:
+        cols = csv.reader(csvfile).next()
     return cols
 
 def csv_getall(csvfile):
@@ -164,7 +166,7 @@ def shp_addcols(shapefile, cols, datatype):
             arcpy.AddField_management(shapefile, col, datatype)
         print 'Added column to the shapefile:', col, datatype
 
-def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldindex, csvfieldtype = "double"):
+def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvstartfield, csvfieldtype = "double", filedelimiter = ",", csvendfield = None):
     """ This function manually joins the CSV to the shapefile and does not use geodatabase tables like the JoinCSV() and JoinSHP() functions. This method should be easier and faster in most cases. In the CSV, the join column must be before the columns with mapping values. This code will map all fields from the mapping column onward (to the right). Returns missing cols. Column limit should be 10 characters."""
 
     cols = csv_getcols(csvfile)
@@ -172,10 +174,13 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldinde
     i = 0
     newcols = []
     for col in cols:
-        if i >= csvfieldindex:
-            newcols.append(col[:10])
+        if csvendfield:
+            if i >= csvstartfield and i < csvendfield:
+                newcols.append(col[:10])
+        else:
+            if i >= csvstartfield:
+                newcols.append(col[:10])
         i += 1
-
     shp_addcols(shapefile, newcols, csvfieldtype)
     i = 0
     ct = 0
@@ -183,11 +188,14 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvfieldinde
 
     with open(csvfile, 'rb') as csvfile:
         lib = dict()
+        csvfile = csv.reader(csvfile, delimiter = filedelimiter)
         csvfile.next() #scip the headers
-        for row in csvfile:
-            line = row.rstrip().split(",")
+        for line in csvfile:
             # csvjoinlist.append(line[csvjoinindex])
-            lib[line[csvjoinindex]] = lib.get(line[csvjoinindex],line[csvfieldindex:])
+            if csvendfield:
+                lib[line[csvjoinindex]] = lib.get(line[csvjoinindex],line[csvstartfield:csvendfield +1])
+            else:
+                lib[line[csvjoinindex]] = lib.get(line[csvjoinindex],line[csvstartfield:])
     rows = arcpy.UpdateCursor(shapefile)
     shpjoinlist = []
     missingshpvals = []
