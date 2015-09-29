@@ -9,86 +9,78 @@ from glob import glob
 import csv
 
 def create_dir():
-    """Creates an empty folder directory on the C drive called Mapping_Project. """
+    """Creates an empty folder directory on the C drive called Mapping_Project. Use this folder for mapping projects. """
     maindir = 'C:/Mapping_Project'
-    folderlist = [maindir, maindir +'/MXDs',maindir +'/Shapefiles',maindir +'/out',maindir +'/csvs',]
+    folderlist = [maindir, maindir +'/MXDs',maindir +'/out']
 
     for item in folderlist:
         try:
             if not os.path.exists(item):
                 os.mkdir(item)
         except:
-            print "There was an error creating the directories."
+            print "There was an error creating the directory:", item
 
-    print "Empty folder directory created a C:/Mapping_Project. Put mxds, shapefiles, etc. in this folder directory."
+    print "Empty folder directory created at C:/Mapping_Project. Put mxds, shapefiles, etc. in this folder directory."
 
-
-def create_workspace():
-    """Checks if a .gbp workspace exists. If there is not one, the script will make one. This script returns the path of the workspace. The .gbp workspace is required to use the csv_jointable function and shp_jointable functions.
+def create_workspace(name):
+    """Checks if a .gbp workspace exists in the mapping_project folder. This script returns the path of the workspace. The file geodatabase workspace replaces shapefiles in ArcGIS10.1 and later.
     """
-    path = 'C://Mapping_Project//workspace.gdb'
-    if not os.path.exists('C://Mapping_Project//workspace.gdb'):
-        arcpy.CreateFileGDB_management('C://Mapping_Project//', 'workspace.gdb')
+    gdbpath = 'C://Mapping_Project//' + name +'.gdb'
+    if not os.path.exists(gdbpath):
+        arcpy.CreateFileGDB_management('C://Mapping_Project//', name + '.gdb')
     else:
-        print 'A workspace exists at the path "C://Mapping_Project"'
-    return  path
+        print 'The workspace', name, 'exists at the path "C://Mapping_Project"'
+    return  gdbpath
 
-def csv_checkmissingshpvals(csvfile, joincol, shpfile, shpfileheader):
-    """Checks to see if any join column values in the CSV are missing in the shapefile. Returns a list of missing shapefile values. The csvfile should be a filepath. The joincol is the column index in the csv starting at 0. Shapefile is the shapefile path. Shapefileheader should be the column lookup name."""
-    csvvals = []
-    with open(csvfile) as csvfile:
-        csvfile = csv.reader(csvfile)
-        csvfile.next()
-        for L in csvfile:
-            csvvals.append(L)
-    shpvals = []
-    rows = arcpy.SearchCursor(shpfile,fields = shpfileheader)
-    for row in rows:
-        shpvals.append(str(row.getValue(shpfileheader)))
-    results = []
-    for val in csvvals:
-        if val not in shpvals:
-            results.append(val)
-    if results == []:
-        print "All values were joined"
+def csv_checkmissingshpvals(csvfile, joincol, shapefile, shapefileheader, headers = True, filedelimiter = ","):
+    """Checks to see if any join column values in the CSV are missing in the  shapefile or geodatabase table. The shapefile/geodatabase table can also be a geodatabase table. Returns a list of missing csv values in a shapefile that wil not be mapped. Headers is True by default."""
+    with open(csvfile, "rb") as csvfile:
+        csvinfo = csv.reader(csvfile, delimiter = filedelimiter)
+        if headers:
+            csvinfo.next()
+
+        shpvals = []
+        rows = arcpy.SearchCursor(shapefile,fields = shapefileheader)
+        for row in rows:
+            shpvals.append(str(row.getValue(shapefileheader)))
+
+        results = []
+        for l in csvinfo:
+            if l[joincol] not in shpvals:
+                results.append(l[joincol])
+    if not results:
+        print "All csv join values have a join value in the shapefile/table."
     return results
 
-def csv_getcols(csvfile):
+def csv_getcols(csvfile, filedelimiter = ","):
     """ Returns a list of the CSV headers."""
     with open(csvfile, 'rb') as csvfile:
-        cols = csv.reader(csvfile).next()
+        cols = csv.reader(csvfile, delimiter = filedelimiter).next()
     return cols
 
-def csv_getall(csvfile):
-    """ Returns the contents of the csvfile as a list. To join the csv, please use the shp_joincsv or (csv_jointable and shp_jointable) functions.
+def csv_sort(csvfile, colindex=0, reverse=False, headers = True, filedelimiter = ","):
+    """ Sorts a csv based on the colindex. If reverse is True, the values will be sorted in reverse index. Common file delimiters are comma ',' and tab '\t'
     """
-    csvvals = []
-    with open(csvfile) as csvfile1:
-        for line in csvfile1:
-            csvvals.append(line)
-    return csvvals
-
-def csv_sort(csvfile, colindex=0, reverse=False):
-    """ Sorts a csv based on the colindex and csvfile path. If reverse is True, the values will be sorted in reverse index. This function assumes that the csv has headers. colindex starts at 0.
-    """
-    data = []
-    with open(csvfile, 'r') as csv:
-        for line in csv:
-            data.append(line)
-    header = csv.reader(data, delimiter=",").next()
-    reader = csv.reader(data[1:], delimiter=",")
-    if reverse:
-        sortedlist = sorted(reader, key=operator.itemgetter(colindex), reverse= True)
-    else:
-        sortedlist = sorted(reader, key=operator.itemgetter(colindex))
-    os.remove(csvfile)
-    resultfile = open(csvfile,'wb')
-    wr = csv.writer(resultfile)
-    wr.writerow(header)
-    for L in sortedlist:
-        wr.writerow(l)
-    resultfile.close()
+    with open(csvfile, 'rb') as csvdata:
+        csvinfo = csv.reader(csvdata, delimiter = filedelimiter)
+        if headers:
+            headers = csvinfo.next()
+        if reverse:
+            vals = sorted(csvinfo, key = operator.itemgetter(colindex), reverse = True)
+        else:
+            vals = sorted(csvinfo, key = operator.itemgetter(colindex))
+    with open(csvfile, 'wb') as outfile:
+        wr = csv.writer(outfile, delimiter = filedelimiter)
+        if headers:
+            wr.writerow(headers)
+        for l in vals:
+            wr.writerow(l)
     print "Finished sorting the csv"
+
+
+
+
+
 
 def csv_jointable(csvfile, workspace):
     """ Imports the csv to the arcgis workspace and returns a string with the workspace and table name. This datatable will then be imported to a shapefile using the shp_jointable() function."""
@@ -152,9 +144,9 @@ def shp_addcols(shapefile, cols, datatype):
             if arcpy.ListFields(shapefile, col):
                 print 'Removed existing column from the shapefile:', col
                 arcpy.DeleteField_management(shapefile, col)
-                arcpy.AddField_management(shapefile, col, datatype)
+                arcpy.AddField_management(shapefile, col, datatype, field_is_nullable = 'NULLABLE')
             else:
-                arcpy.AddField_management(shapefile, col, datatype)
+                arcpy.AddField_management(shapefile, col, datatype,field_is_nullable = 'NULLABLE')
             print 'Added column to the shapefile:', col, datatype
     else:
         col = cols[:10]
@@ -166,8 +158,8 @@ def shp_addcols(shapefile, cols, datatype):
             arcpy.AddField_management(shapefile, col, datatype)
         print 'Added column to the shapefile:', col, datatype
 
-def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvstartfield, csvfieldtype = "double", filedelimiter = ",", csvendfield = None):
-    """ This function manually joins the CSV to the shapefile and does not use geodatabase tables like the JoinCSV() and JoinSHP() functions. This method should be easier and faster in most cases. In the CSV, the join column must be before the columns with mapping values. This code will map all fields from the mapping column onward (to the right). Returns missing cols. Column limit should be 10 characters."""
+def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvstartfield, csvfieldtype = "double", filedelimiter = ",", csvendfield = None, customnodatalabel = -9999):
+    """ This function manually joins the CSV to the shapefile and does not use geodatabase tables like the JoinCSV() and JoinSHP() functions. This method should be easier and faster in most cases. In the CSV, the join column must be before the columns with mapping values. This code will map all fields from the mapping column onward (to the right). Returns missing cols. Column limit should be 10 characters. CSV field type can be 'text' as well. If the fieldtype added is a double and there is no value, a a custom value of -9999 by default will be added. Arcpy automatically converts nulls to 0 which is misleading as it will show 0 change instead of no data in percent change maps. Use the customnodatalabel value to represent no data. The default is -9999."""
 
     cols = csv_getcols(csvfile)
 
@@ -208,7 +200,12 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvstartfiel
                 row.setValue(str(field),vals[ind])
                 rows.updateRow(row)
         except:
-            pass
+            if csvfieldtype.lower() == "double":
+                for ind, field in enumerate(newcols):
+                    row.setValue(str(field),customnodatalabel)
+                    rows.updateRow(row)
+            else:
+                pass
     del rows
     return
 
@@ -225,7 +222,7 @@ def shp_jointable(jointable, joinfield, shapefile, shpjoinfield, add_fields):
     print "Finished shapefile join."
 
 def shp_maxmin_newshp(shapefile, shapejoincol, shapefile2, shapejoincol2, addcols):
-    """Not using this function for the project, but it works, so i'm leaving it here. This function adds max and min values associated with shapefile1 to shapefile2. If shapefile 1 has 3 postcodes in a county, this script will add the max and min value to shapefile 2 for that county. The value -9999 in a shpfile is treated as unknown rather than a minimum change."""
+    """Not using this function for the project, but it works, so i'm leaving it here. This function adds max and min values associated with shapefile1 to shapefile2. If shapefile 1 has 3 postcodes in a county, this script will add the max and min value to shapefile 2 for that county. The value -9999 in a shapefile is treated as unknown rather than a minimum change."""
     i= 0
     for col in addcols:
         addcols[i] = col[:10]
