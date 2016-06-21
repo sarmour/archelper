@@ -1,1 +1,0 @@
-This code is in development. This readme file will be updated when the module is ready for use.
