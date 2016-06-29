@@ -52,7 +52,7 @@ def csv_checkmissingshpvals(inputfile, joincol, shapefile, shapefileheader, head
         if headers:
             csvinfo.next()
         shpvals = []
-        rows = arcpy.SearchCursor(shapefile, fields=shapefileheader)
+        rows = arcpy.da.SearchCursor(shapefile, fields=shapefileheader)
         for row in rows:
             shpvals.append(str(row.getValue(shapefileheader)))
         results = []
@@ -221,7 +221,7 @@ def shp_joincsv(csvfile, shapefile, shapefilejoincol, csvjoinindex, csvstartfiel
                 lib[line[csvjoinindex]] = lib.get(line[csvjoinindex], line[csvstartfield:csvendfield + 1])
             else:
                 lib[line[csvjoinindex]] = lib.get(line[csvjoinindex], line[csvstartfield:])
-    rows = arcpy.UpdateCursor(shapefile)
+    rows = arcpy.da.UpdateCursor(shapefile)
     shpjoinlist = []
     for row in rows:
         shpjoinval = str(row.getValue(shapefilejoincol))
@@ -337,7 +337,7 @@ def map_create1(mxds, shapefile, mapcols, symbology, labels=False, prefix=None, 
 #         i += 1
 #     i = 0
 #     shp_addcols(shapefile2, addcols, "STRING")
-#     rows = arcpy.SearchCursor(shapefile)
+#     rows = arcpy.da.SearchCursor(shapefile)
 #     shpvallist = []
 #     joinlist = []
 #     for row in rows:
@@ -376,7 +376,7 @@ def map_create1(mxds, shapefile, mapcols, symbology, labels=False, prefix=None, 
 #     for col in addcols:
 #         vals = coldict[col]
 #         del rows
-#         rows = arcpy.UpdateCursor(shapefile2)
+#         rows = arcpy.da.UpdateCursor(shapefile2)
 #         for row in rows:
 #             shpjoinval = row.getValue(shapejoincol2)
 #             try:
@@ -393,7 +393,7 @@ def map_create1(mxds, shapefile, mapcols, symbology, labels=False, prefix=None, 
 #     shp_addcols(shapefile, newcols, "STRING")
 #     for col in maxmin_cols:
 #         col =  col[:10]
-#         rows = arcpy.UpdateCursor(shapefile)
+#         rows = arcpy.da.UpdateCursor(shapefile)
 #         shpvallist = []
 #         for row in rows:
 #             adminval = row.getValue(aggregation_column)
@@ -428,7 +428,7 @@ def map_create1(mxds, shapefile, mapcols, symbology, labels=False, prefix=None, 
 #                 print "Had issues formatting the number: " + maxval[2] + " or " + minval[2]
 #             mydict[k]= {'maxpost':maxval[1],'maxchange':maxval[2],'minpost':minval[1],'minchange':minval[2]}
 #             del minval, maxval
-#         rows = arcpy.UpdateCursor(shapefile)
+#         rows = arcpy.da.UpdateCursor(shapefile)
 #         for row in rows:
 #             adminval = row.getValue(aggregation_column)
 #             maxminkey = row.getValue(shapejoincol)
@@ -668,7 +668,7 @@ def map_create1(mxds, shapefile, mapcols, symbology, labels=False, prefix=None, 
 #         print "You need to choose a symbology type: 'Percent_Change','Diff_LC', or a layerfile path"
 #         return
 
-#     rows = arcpy.SearchCursor(shapefile)
+#     rows = arcpy.da.SearchCursor(shapefile)
 #     adminIDs = []
 #     for row in rows:
 #         val = row.getValue(shpsubregioncol)
